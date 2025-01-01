@@ -1,0 +1,56 @@
+<%- include("partials/header.ejs") %>
+<div class="max-w-md mx-auto">
+    <h2 class="text-2xl font-semibold mb-4" x-text="Player Registration'"></h2>
+    
+ 
+    <!-- Register Form -->
+    <form action="/api/register" method="post" class="space-y-4">
+        <div class="space-y-2">
+            <!-- <div class="flex items-center">
+                <i class="ri-user-line mr-2"></i>
+                <input type="text" class="input w-full hover:border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-2 focus:outline-none " 
+                    name="username" placeholder="Username" required />
+            </div> -->
+            <div class="flex items-center">
+                <i class="ri-mail-line mr-2"></i>
+                <input type="email" class="input w-full hover:border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-2 focus:outline-none " 
+                    name="email" placeholder="Email Address" required />
+            </div>
+            <div class="flex items-center">
+                <i class="ri-user-smile-line mr-2"></i>
+                <input type="text" class="input w-full hover:border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-2 focus:outline-none " 
+                    name="name" placeholder="Full Name" required />
+            </div>
+            <!-- <div class="flex items-center">
+                <i class="ri-lock-line mr-2"></i>
+                <input type="password" class="input w-full hover:border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-2 focus:outline-none " 
+                    name="password" placeholder="Password" required />
+            </div> -->
+           <div class="flex items-center relative">
+                <i class="ri-service-fill mr-2"></i>
+                <input type="number" max=<%if(locals.mHandicap){%>"<%=mHandicap%>" <%} else {%> "54" <%}%> min="0" class="input w-full hover:border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-2 focus:outline-none"
+                    name="handicap" placeholder="handicap (max: <%= mHandicap || 54%>)" required />
+                <div class="group relative">
+                    <i class="ri-information-2-fill ml-2 text-white cursor-help"></i>
+                    <div class="invisible group-hover:visible opacity-0 group-hover:opacity-100 absolute right-0 top-6 w-64 p-2 bg-black text-white text-sm rounded shadow-lg z-10">
+                        A golf handicap represents a golfer's potential ability, used to level the playing field in tournaments, allowing players of different skill levels to compete fairly. Lower handicaps indicate better players. (0 to <%= mHandicap || 54%>)
+                    </div>
+                </div>
+            </div>
+        <button class="btn w-full flex items-center justify-center" type="submit">
+            <i class="ri-user-add-line mr-2"></i>
+            Register
+        </button>
+    </form>
+
+    <!-- Toggle Button -->
+     <!-- <div class="mt-4 text-center">
+        <button class="text-blue-500 hover:text-blue-700" 
+            x-text="isLogin ? 'Need an account? Register' : 'Already have an account? Login'"
+            @click="isLogin = !isLogin">
+        </button>
+    </div> -->
+</div>
+
+
+<%- include("partials/footer.ejs") %>

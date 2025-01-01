@@ -1,0 +1,156 @@
+<!-- views/match.ejs -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Golf Tournament</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        .current-turn { background-color: #e0ffe0; }
+        .completed { background-color: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <% if (isAdmin) { %>
+        <div id="admin-controls">
+            <h2>Admin Controls</h2>
+            <form id="player-form">
+                <h3>Add Player</h3>
+                <input type="text" name="name" placeholder="Player Name" required>
+                <input type="email" name="email" placeholder="Email" required>
+                <button type="submit">Add Player</button>
+            </form>
+
+            <form id="match-form">
+                <h3>Create Match</h3>
+                <div id="player-selection">
+                    <!-- Populated dynamically -->
+                </div>
+                <input type="number" name="par" placeholder="Par" required>
+                <button type="submit">Create Match</button>
+            </form>
+        </div>
+    <% } %>
+
+    <div id="current-match">
+        <h2>Current Match</h2>
+        <div id="match-details"></div>
+    </div>
+
+    <div id="completed-matches">
+        <h2>Completed Matches</h2>
+        <div id="matches-list"></div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            // Load current match
+            function loadCurrentMatch() {
+                $.get('/api/matches/current', function(response) {
+                    if (!response.match) return;
+                    
+                    let html = '<table><tr><th>Player</th><th>Strokes</th><th>To Par</th></tr>';
+                    response.match.players.forEach(player => {
+                        const score = response.match.scores.find(s => s.player === player._id);
+                        const strokes = score ? score.strokes : 0;
+                        const toPar = strokes - response.match.par;
+                        const isCurrentTurn = player._id === response.match.currentPlayerTurn?._id;
+                        
+                        html += `
+                            <tr class="${isCurrentTurn ? 'current-turn' : ''}">
+                                <td>${player.name}</td>
+                                <td>${strokes}</td>
+                                <td>${toPar > 0 ? '+' + toPar : toPar}</td>
+                                ${isAdmin ? `
+                                    <td>
+                                        <button onclick="updateScore('${player._id}', ${strokes + 1})">+</button>
+                                        <button onclick="updateScore('${player._id}', ${strokes - 1})">-</button>
+                                        <button onclick="setCurrentTurn('${player._id}')">Set Turn</button>
+                                    </td>
+                                ` : ''}
+                            </tr>
+                        `;
+                    });
+                    html += '</table>';
+                    
+                    if (isAdmin) {
+                        html += `<button onclick="completeMatch()">Complete Match</button>`;
+                    }
+                    
+                    $('#match-details').html(html);
+                });
+            }
+
+            // Load completed matches
+            function loadCompletedMatches() {
+                $.get('/api/matches/completed', function(response) {
+                    let html = '';
+                    response.matches.forEach(match => {
+                        html += `
+                            <div class="completed-match">
+                                <h3>Match ${new Date(match.date).toLocaleDateString()}</h3>
+                                <p>Winner: ${match.winner.name}</p>
+                                <p>Par: ${match.par}</p>
+                            </div>
+                        `;
+                    });
+                    $('#matches-list').html(html);
+                });
+            }
+
+            // Admin functions
+            if (isAdmin) {
+                $('#player-form').submit(function(e) {
+                    e.preventDefault();
+                    $.post('/api/players', $(this).serialize(), function() {
+                        alert('Player added successfully');
+                        $(this).trigger('reset');
+                    });
+                });
+
+                function updateScore(playerId, newStrokes) {
+                    $.ajax({
+                        url: `/api/matches/${currentMatchId}/score`,
+                        method: 'PUT',
+                        data: { playerId, strokes: newStrokes },
+                        success: loadCurrentMatch
+                    });
+                }
+
+                function setCurrentTurn(playerId) {
+                    $.ajax({
+                        url: `/api/matches/${currentMatchId}/turn`,
+                        method: 'PUT',
+                        data: { playerId },
+                        success: loadCurrentMatch
+                    });
+                }
+
+                function completeMatch() {
+                    const winnerId = prompt('Enter winner ID:');
+                    if (!winnerId) return;
+                    
+                    $.ajax({
+                        url: `/api/matches/${currentMatchId}/complete`,
+                        method: 'PUT',
+                        data: { winnerId },
+                        success: function() {
+                            loadCurrentMatch();
+                            loadCompletedMatches();
+                        }
+                    });
+                }
+            }
+
+            // Initial load
+            loadCurrentMatch();
+            loadCompletedMatches();
+            
+            // Refresh every 30 seconds
+            setInterval(function() {
+                loadCurrentMatch();
+                loadCompletedMatches();
+            }, 30000);
+        });
+    </script>
+</body>
+</html>

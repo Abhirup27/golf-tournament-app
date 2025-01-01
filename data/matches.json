@@ -1,0 +1,49 @@
+[
+  {
+    "id": "m1",
+    "players": ["p1", "p2", "p3"],
+    "currentPlayerTurn": "p2",
+    "par": 72,
+    "scores": [
+      {
+        "playerId": "p1",
+        "strokes": 74
+      },
+      {
+        "playerId": "p2",
+        "strokes": 70
+      },
+      {
+        "playerId": "p3",
+        "strokes": 76
+      }
+    ],
+    "winner": null,
+    "status": "ongoing",
+    "date": "2024-12-28T09:00:00Z"
+  },
+  {
+    "id": "m2",
+    "players": ["p2", "p3", "p4"],
+    "currentPlayerTurn": null,
+    "par": 72,
+    "scores": [
+      {
+        "playerId": "p2",
+        "strokes": 71
+      },
+      {
+        "playerId": "p3",
+        "strokes": 73
+      },
+      {
+        "playerId": "p4",
+        "strokes": 75
+      }
+    ],
+    "winner": "p2",
+    "status": "completed",
+    "date": "2024-12-27T14:00:00Z"
+  }
+]
+

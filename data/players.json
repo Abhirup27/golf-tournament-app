@@ -1,0 +1,81 @@
+[
+  {
+    "id": "a83f1a22-ff63-40a4-8aff-2bbcae632ab2",
+    "name": "Ab",
+    "email": "asd@gmail.com",
+    "isAdmin": false,
+    "isEditedByAdmin": false,
+    "strokes": [
+      22,
+      12,
+      3,
+      23,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "locks": [],
+    "scores": [],
+    "score": "",
+    "handicap": 25
+  },
+  {
+    "id": "457d1769-85e9-4555-a68e-7c6343bcdf34",
+    "name": "ab2",
+    "email": "ab@gmail.com",
+    "isAdmin": false,
+    "isEditedByAdmin": true,
+    "strokes": [],
+    "locks": [],
+    "scores": [],
+    "score": "",
+    "handicap": 23
+  },
+  {
+    "id": "8235672d-b3e8-4ca9-ad90-ac914ea950b2",
+    "name": "xyzasdasd",
+    "email": "123@gmail.com",
+    "handicap": 12,
+    "isAdmin": false,
+    "isEditedByAdmin": true,
+    "strokes": [],
+    "locks": [],
+    "scores": [],
+    "score": ""
+  },
+  {
+    "id": "6470cf20-4a96-4840-9a98-a92739877496",
+    "name": "lax",
+    "email": "lax@gmail.com",
+    "handicap": 10,
+    "isAdmin": false,
+    "isEditedByAdmin": true,
+    "strokes": [],
+    "locks": [],
+    "scores": [],
+    "score": ""
+  },
+  {
+    "id": "34faf5d7-be7e-43ff-9497-d1f392bfa422",
+    "name": "ki",
+    "email": "ab12@gmail.com",
+    "handicap": 1,
+    "isAdmin": false,
+    "isEditedByAdmin": true,
+    "strokes": [],
+    "locks": [],
+    "scores": [],
+    "score": ""
+  }
+]
