@@ -3,13 +3,13 @@
 ## Steps
 
 1. Open a terminal and using cd, move your current working directory to the root of golf-tournament-app
-2. Create a .env file in the project's root dir
+2. Create a .env file in the project's root directory.
 
 ```
 $<Any_path>/golf-tournament-app/> touch .env
 ```
 
-3. First we need to choose the admin's password. To do this, open up nodeJS's command line using
+3. First we need to choose the admin's password. To do this, open up nodeJS's command line environment by typing node 
 
 ```
 $<Any_path>/golf-tournament-app/> node
@@ -103,7 +103,7 @@ found 0 vulnerabilities
 <Any_path>/golf-tournament-app/>
 ```
 
-10. Then type **clear** in your terminal to clear the screen buffer
+10. Then type **clear** in your terminal to clear the terminal's output buffer
 
 ```
 $<Any_path>/golf-tournament-app/>
