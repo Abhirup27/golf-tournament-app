@@ -1,15 +1,30 @@
 <%- include("partials/header.ejs") %>
 <div class="max-w-md mx-auto">
-    <form action="/admin" method="get" class="space-y-4">
-        <button class="btn w-full flex items-center justify-center" >
-            <i class="ri-admin-line mr-2"></i>
-            Admin Login
-        </button>
-    </form>
+    <div class="mb-6 text-center text-red-500">
+     
+            <% if (!tournamentStatus) { %>
+                <p>Tournament not set. Players can register.</p>
+            <% } else if (tournamentStatus === 'idle') { %>
+                <p>Tournament set for <%= startDate %>. Players can register.</p>
+            <% } else if (tournamentStatus === 'ongoing' || tournamentStatus === 'paused') { %>
+                <p>Tournament <%= tournamentStatus %>. Started: <%= startDate %>. Ends: <%= endDate %>. Contact admin for registration.</p>
+            <% } else if (tournamentStatus === 'finished') { %>
+                <p>Tournament finished.</p>
+            <% } %>
+        </div>
+  
     <form action="/api" method="get" class="space-y-4">
         <button class="btn w-full flex items-center justify-center" >
             <i class="ri-user-add-line mr-2"></i>
-            Players
+            Player <% if (tournamentStatus === undefined ||tournamentStatus === 'idle' ||tournamentStatus === 'finished') { %> Login <%} else {%> Register<%}%>
         </button>
     </form>
+
+    <form action="/api/view-score" method="get" class="space-y-4 mt-4">
+       <button class="btn w-full flex items-center justify-center">
+           <i class="ri-eye-line mr-2"></i>
+           View Score
+       </button>
+   </form>
+</div>
 <%- include("partials/footer.ejs") %>

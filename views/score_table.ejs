@@ -1,30 +1,54 @@
 <%- include("partials/header.ejs") %>
-<div class="w-screen h-screen p-4 bg-black">
-    <table class="w-full h-full text-white text-2xl lg:text-4xl">
+<div class="w-screen min-h-screen p-4 bg-black">
+    <table class="w-full text-white text-lg lg:text-2xl">
         <thead>
-            <tr>
-                <th class="text-left py-4">Player</th>
+            <tr class="border-b border-gray-700">
+                <th class="text-left py-4 px-2">PLAYER</th>
                 <% for(let i = 0; i < cups; i++) { %>
-                    <th class="text-center">Cup <%= i + 1 %></th>
+                    <th class="text-center border-l border-gray-700 px-2">
+                        <div class="flex flex-col items-center text-base">
+                            <div>Hole <%= i + 1 %></div>
+                            <div class="flex gap-1">
+                                <span class="text-yellow-400">Par <%= tournament.pars[i] %></span>
+                                <span class="text-pink-400">SI <%= tournament.strokeIndex[i] %></span>
+                            </div>
+                        </div>
+                    </th>
                 <% } %>
-                <th class="text-center">Total</th>
+                <th class="text-center border-l border-gray-700">OUT</th>
+                <th class="text-center border-l border-gray-700">IN</th>
+                <th class="text-center border-l border-gray-700">GROSS</th>
+                <th class="text-center border-l border-gray-700">Hdcp</th>
+                <th class="text-center border-l border-gray-700">NET</th>
+                <th class="text-center border-l border-gray-700">Total Points</th>
             </tr>
         </thead>
         <tbody>
             <% players.forEach(function(player) { %>
-                <tr class="hover:bg-red-900">
-                    <td class="py-4"><%= player.name %></td>
+                <tr class="border-b border-gray-700 hover:bg-gray-900" data-player="<%= player.name %>">
+                    <td class="py-2 px-2"><%= player.name %></td>
                     <% for(let i = 0; i < cups; i++) { %>
-                        <td class="text-center">
-                            <%= player.strokes[i] || '-' %> <%= player.scores[i] || '' %>
+                        <td class="text-center border-l border-gray-700 px-2">
+                            <div class="flex flex-col">
+                                <span><%= player.strokes[i] || '-' %></span>
+                                <span class="text-base <%= player.points && player.points[i] > 0 ? 'text-green-500' : player.points && player.points[i] < 0 ? 'text-red-500' : '' %>">
+                                    <%= player.points != undefined ? player.points[i] : '' %>
+                                </span>
+                            </div>
                         </td>
                     <% } %>
-                    <td class="text-center font-bold"><%= player.score || '-' %></td>
+                    <td class="text-center border-l border-gray-700"><%= player.out || '-' %></td>
+                    <td class="text-center border-l border-gray-700"><%= player.in || '-' %></td>
+                    <td class="text-center border-l border-gray-700"><%= player.gross || '-' %></td>
+                    <td class="text-center border-l border-gray-700"><%= player.handicap || '-' %></td>
+                    <td class="text-center border-l border-gray-700"><%= player.net || '-' %></td>
+                    <td class="text-center border-l border-gray-700 font-bold"><%= player.totalPoints || '-' %></td>
                 </tr>
             <% }); %>
         </tbody>
     </table>
 </div>
+
 <script>
 async function updateScoreboard() {
     try {
@@ -36,59 +60,46 @@ async function updateScoreboard() {
 
         players.forEach(player => {
             const row = document.createElement('tr');
-            row.className = 'hover:bg-red-900 group';
+            row.className = 'border-b border-gray-700 hover:bg-gray-900';
             row.setAttribute('data-player', player.name);
 
-            const nameCell = document.createElement('td');
-            nameCell.className = 'py-4';
-            nameCell.textContent = player.name;
-            row.appendChild(nameCell);
+            const cells = [
+                player.name,
+                ...player.strokes.map((stroke, i) => ({
+                    stroke: stroke || '-',
+                    points: player.points[i] || ''
+                })),
+                player.out || '-',
+                player.in || '-',
+                player.gross || '-',
+                player.handicap || '-',
+                player.net || '-',
+                player.totalPoints || '-'
+            ];
 
-            const numCups = player.strokes.length || player.scores.length;
-            for (let i = 0; i < numCups; i++) {
-                const cupCell = document.createElement('td');
-                cupCell.className = 'text-center';
+            cells.forEach((cell, i) => {
+                const td = document.createElement('td');
+                td.className = 'text-center border-l border-gray-700 px-2' + (i === 0 ? ' py-2' : '');
                 
-                const strokeValue = player.strokes[i] || '-';
-                const scoreValue = player.scores[i] || '';
-                
-                let scoreClass = '';
-                if (scoreValue) {
-                    if (scoreValue.includes('Under') || 
-                        ['Eagle', 'Birdie', 'Albatross', 'Condor', 'Hole in One'].includes(scoreValue)) {
-                        scoreClass = 'text-green-500 group-hover:text-white';
-                    } else if (scoreValue.includes('Over') || 
-                             ['Bogey', 'Double Bogey', 'Triple Bogey'].includes(scoreValue)) {
-                        scoreClass = 'text-red-500 group-hover:text-white';
-                    }
+                if (typeof cell === 'object') {
+                    td.innerHTML = `
+                        <div class="flex flex-col">
+                            <span>${cell.stroke}</span>
+                            <span class="text-base ${cell.points > 0 ? 'text-green-500' : cell.points < 0 ? 'text-red-500' : ''}">
+                                ${cell.points}
+                            </span>
+                        </div>
+                    `;
+                } else {
+                    td.textContent = cell;
                 }
                 
-                cupCell.innerHTML = `
-                    <div class="flex flex-col">
-                        <span>${strokeValue}</span>
-                        ${scoreValue ? `<span class="${scoreClass}">${scoreValue}</span>` : ''}
-                    </div>
-                `;
-                
-                row.appendChild(cupCell);
-            }
-
-            const totalCell = document.createElement('td');
-            totalCell.className = 'text-center font-bold';
-            if (player.score) {
-                let totalScoreClass = '';
-                if (player.score.includes('Under') || 
-                    ['Eagle', 'Birdie', 'Albatross', 'Condor'].includes(player.score)) {
-                    totalScoreClass = 'text-green-500 group-hover:text-white';
-                } else if (player.score.includes('Over') || 
-                         ['Bogey', 'Double Bogey', 'Triple Bogey'].includes(player.score)) {
-                    totalScoreClass = 'text-red-500 group-hover:text-white';
+                if (i === cells.length - 1) {
+                    td.classList.add('font-bold');
                 }
-                totalCell.innerHTML = `<span class="${totalScoreClass}">${player.score}</span>`;
-            } else {
-                totalCell.textContent = '-';
-            }
-            row.appendChild(totalCell);
+                
+                row.appendChild(td);
+            });
 
             tbody.appendChild(row);
         });
@@ -96,51 +107,25 @@ async function updateScoreboard() {
         const statusResponse = await fetch('/api/tournament-status');
         const { tournamentFinished } = await statusResponse.json();
 
-        const event = new CustomEvent('tournamentStatusUpdate', {
-            detail: { 
-                finished: tournamentFinished,
-                players: players
+        if (tournamentFinished) {
+            const bestPlayer = players.reduce((best, current) => 
+                (!best || current.totalPoints > best.totalPoints) ? current : best, null);
+            
+            if (bestPlayer) {
+                const winnerRow = document.querySelector(`tr[data-player="${bestPlayer.name}"]`);
+                if (winnerRow) {
+                    winnerRow.classList.add('bg-green-900');
+                    winnerRow.classList.remove('hover:bg-gray-900');
+                }
             }
-        });
-        document.dispatchEvent(event);
+        }
 
     } catch (error) {
         console.error('Error updating scoreboard:', error);
     }
 }
 
-
-// Update scoreboard immediately
 updateScoreboard();
-
-const updateInterval = 5000; // 5 seconds
-setInterval(updateScoreboard, updateInterval);
-
-// Example of how to handle the tournament status update
-document.addEventListener('tournamentStatusUpdate', (event) => {
-    const { finished, players } = event.detail;
-    if (finished) {
-        // Find the best score (based on total strokes)
-        let bestPlayer = null;
-        let lowestStrokes = Infinity;
-        
-        players.forEach(player => {
-            const totalStrokes = player.strokes.reduce((sum, strokes) => sum + (strokes || 0), 0);
-            if (totalStrokes > 0 && totalStrokes < lowestStrokes) {
-                lowestStrokes = totalStrokes;
-                bestPlayer = player.name;
-            }
-        });
-
-        // Highlight the winner's row
-        if (bestPlayer) {
-            const winnerRow = document.querySelector(`tr[data-player="${bestPlayer}"]`);
-            if (winnerRow) {
-                winnerRow.classList.add('bg-green-900');
-                winnerRow.classList.remove('hover:bg-red-900');
-            }
-        }
-    }
-});
+setInterval(updateScoreboard, 5000);
 </script>
 <%- include("partials/footer.ejs") %>

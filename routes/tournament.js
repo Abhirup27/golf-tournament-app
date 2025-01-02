@@ -1,7 +1,8 @@
 const express = require('express');
 
 const router = express.Router();
-
+const path = require('path');
+const fs = require('fs').promises;
 const { v4: uuidv4 } = require('uuid');
 const { DB_PATH, readJSON, writeJSON } = require('../db');
 const session = require("express-session");
@@ -24,6 +25,33 @@ const GolfScore = {
     TRIPLE_BOGEY: 3,
     HOLE_IN_ONE: 1,
     CONDOR: -4
+};
+
+const calculateStablefordPoints = (netStrokes, par) => {
+    const relativeToPar = netStrokes - par;
+    switch (true) {
+        case relativeToPar <= -3: return 8;  // Albatross or better
+        case relativeToPar === -2: return 5; // Eagle
+        case relativeToPar === -1: return 2; // Birdie
+        case relativeToPar === 0:  return 0; // Par
+        case relativeToPar === 1:  return -1; // Bogey
+        default: return -3;  // Double bogey or worse
+    }
+};
+
+const calculateCourseHandicap = (playerHandicap, slopeRating) => {
+    return Math.round(playerHandicap * (slopeRating / 113));
+};
+
+
+const getHandicapStrokesForHole = (courseHandicap, holeHandicapIndex , totalholes) => {
+    // First stroke allocation
+    if (courseHandicap >= holeHandicapIndex) return 1;
+    
+    // Second stroke allocation (for handicaps > 18)
+    if (courseHandicap - totalholes >= holeHandicapIndex) return 2;
+    
+    return 0;
 };
 
 // Create a mapping from score number to description
@@ -145,50 +173,47 @@ const getPars= async () => {  // DO NOT USE THIS, TOURNAMENT AND PARS ARE REFERE
 }
 
 
-
-const calcTotalScore = async () =>
-{
-    const par = await getPar();
-    const players = await readJSON(DB_PATH.players);
-
-
-    players.forEach(player => {
-        var totalStrokes = 0;
-        for (const strokes of player.strokes) {
-            totalStrokes += strokes;
-        }
-        player.score = getScoreName(totalStrokes, par);
-
-    });
-
-    await writeJSON(DB_PATH.players, players);
-}
 const calcScore = async (idx) => {
     try {
-        const  players = await readJSON(DB_PATH.players)
-
+        const players = await readJSON(DB_PATH.players);
         const tournament = await readJSON(DB_PATH.tournament);
-        console.log(tournament.pars)
+        
         if (!tournament.pars || !tournament.pars[idx]) {
             console.error(`No par value found for hole ${idx}`);
             return;
         }
-
+        
         const par = tournament.pars[idx];
-
+        
         for (const player of players) {
-            // Initialize scores array if it doesn't exist
-            if (!Array.isArray(player.scores)) {
-                player.scores = new Array(tournament.cups).fill(null);
+            // Initialize arrays if they don't exist
+            if (!Array.isArray(player.points)) {
+                player.points = new Array(tournament.cups).fill(null);
             }
-
-            // Only calculate score if there's a valid stroke value
-            if (player.strokes && 
-                Array.isArray(player.strokes) && 
-                typeof player.strokes[idx] === 'number' && 
+            
+            if (player.strokes &&
+                Array.isArray(player.strokes) &&
+                typeof player.strokes[idx] === 'number' &&
                 player.strokes[idx] !== 0) {
                 
-                player.scores[idx] = getScoreName(player.strokes[idx], par);
+                // Calculate course handicap
+                const courseHandicap = calculateCourseHandicap(
+                    player.handicap, 
+                    tournament.slopeRating
+                );
+                
+                // Get handicap strokes for this hole
+                const handicapStrokes = getHandicapStrokesForHole(
+                    courseHandicap, 
+                    tournament.strokeIndex[idx],
+                    tournament.cups
+                );
+                
+                // Calculate net strokes for the hole
+                const netStrokes = player.strokes[idx] - handicapStrokes;
+                
+                // Calculate Stableford points
+                player.points[idx] = calculateStablefordPoints(netStrokes, par);
             }
         }
         
@@ -199,6 +224,64 @@ const calcScore = async (idx) => {
     }
 };
 
+const calcTotalScore = async () => {
+    const tournament = await readJSON(DB_PATH.tournament);
+    const players = await readJSON(DB_PATH.players);
+    
+    players.forEach(player => {
+        let totalGrossStrokes = 0;
+        let totalNetStrokes = 0;
+        let totalPoints = 0;
+        let outPoints = 0;
+        let inPoints = 0;
+        
+        const courseHandicap = calculateCourseHandicap(
+            player.handicap, 
+            tournament.slopeRating
+        );
+        console.log("The course handicap: " + courseHandicap)
+        for (let i = 0; i < player.strokes.length; i++) {
+            const strokes = player.strokes[i];
+            if (typeof strokes === 'number' && strokes !== 0) {
+                console.log('this ran' + strokes)
+                // Calculate gross strokes
+                totalGrossStrokes += strokes;
+                
+                // Calculate handicap strokes for this hole
+                const handicapStrokes = getHandicapStrokesForHole(
+                    courseHandicap,
+                    tournament.strokeIndex[i],
+                    tournament.cups
+                );
+                console.log('handicap' + handicapStrokes)
+                // Calculate net strokes
+                const netStrokes = strokes - handicapStrokes;
+                totalNetStrokes += netStrokes;
+
+                // Calculate Stableford points
+                const points = calculateStablefordPoints(netStrokes, tournament.pars[i]);
+                
+                // Add to total points and front/back nine
+                totalPoints += points;
+                if (i < (tournament.cups/2)) {
+                    outPoints += points;
+                } else {
+                    inPoints += points;
+                }
+            }
+        }
+        
+        // Update player's totals
+        player.gross = totalGrossStrokes;
+        player.net = totalNetStrokes;
+        player.totalPoints = totalPoints;
+        player.out = outPoints;
+        player.in = inPoints;
+    });
+    
+    await writeJSON(DB_PATH.players, players);
+};
+
 
 
 router.use(cookieParser());
@@ -207,9 +290,14 @@ router.get('/', async (req, res) => {
        
         const tour_status = await readJSON(DB_PATH.tournament);
         console.log(tour_status.status)
-        if (tour_status.status != "ongoing" && tour_status.status != "paused")
+        
+        if (tour_status.status != "ongoing" && tour_status.status != "paused") //need to change this to let old players log back in and see past matches, maybe use player id cookie
         {
-            res.render('register',{mHandicap: tour_status.mHandicap || 54})
+            const curr_course_settings = await readJSON(DB_PATH.course);
+
+            res.render('register', { mHandicap: tour_status.mHandicap || 54, courses: [{id:1, name: 'current golf course', rating: curr_course_settings.courseRating, slope: curr_course_settings.slopeRating}, { id: 2, name: 'Course 2', rating: 72.1, slope: 128 },
+        // etc.
+    ] })
         }
         else
         {
@@ -278,7 +366,7 @@ router.post('/login', async (req, res) => {
         }
         else
         {
-            res.render("index", {message: "Player not found. Make sure the name's letter casing is correct and the email address is the same."})
+            res.render("login", {message: "Player not found. Make sure the name's letter casing is correct and the email address is the same.", isAdmin:false})
         }
         
     } catch (error)
@@ -287,37 +375,56 @@ router.post('/login', async (req, res) => {
     }
 });
 
+router.get('/set-strokes', async (req, res) => {
+    const players = await readJSON(DB_PATH.players);
+    const tournament = await readJSON(DB_PATH.tournament)
+
+    const player = players.find(p => p.id === req.cookies.id);
+    if (player && tournament.status != undefined && await isOngoing()) {
+
+        res.render("set_points", {message:"Updated successfully!", holes: await getCups(), scores: player.strokes, pars: await getPars(), locks: tournament.cupLocks })
+    }
+    else
+    {
+        res.render("login", {message: "User not found or the tournament is not on going", isAdmin:false}) //might change this to a 303 reroute
+        }
+})
 
 router.post('/register', async (req, res) => {
     try {
+        const tournament = await readJSON(DB_PATH.tournament);
         if (await isOngoing())
         {
-            res.render('index', { message: "You cannot register when the tournament is already going on." })
+            res.render('index', { message: "You cannot register when the tournament is already going on." ,tournamentStatus: tournament.status, startDate: tournament.startDate, endDate: tournament.endDate, path:'/'})
             return;
         }
         const players = await readJSON(DB_PATH.players);
         const player = players.find(p => p.email === req.body.email);
         if (player)
         {
-            res.render("register", { message: "Failed! User already exists. Same email cannot be used for different users." })
+            const curr_course_settings = await readJSON(DB_PATH.course);
+            res.render("register", { mHandicap: tournament.mHandicap || 54,courses: [{id:1, name: 'current golf course', rating: curr_course_settings.courseRating, slope: curr_course_settings.slopeRating}, { id: 2, name: 'Course 2', rating: 72.1, slope: 128 }], message: "Failed! User already exists. Same email cannot be used for different users." })
             return;
         }
         const newPlayer = {
             id: uuidv4(),
             name: req.body.name,
             email: req.body.email, //primary
-            isAdmin: false,
-            isEditedByAdmin:false,
+            handicap: parseFloat(req.body.handicap),
             strokes: [],
-            locks: [],
-            scores: [],
-            score: '',
-            handicap: parseInt(req.body.handicap)
+            points: [],
+            gross: null,
+            net: null,
+            out: null,
+            in: null,
+            totalPoints: null,
+            isAdmin: false,
+            isEditedByAdmin:false
         };
         
         players.push(newPlayer);
         await writeJSON(DB_PATH.players, players);
-        res.render("index", {message:"Registration successful! Login once the tournament has started!"});
+        res.render("index", {message:"Registration successful! Login once the tournament has started!",tournamentStatus: tournament.status, startDate: tournament.startDate, endDate: tournament.endDate, path:'/'});
     } catch (error) {
         res.status(400).json({ error: error.message });
     }
@@ -358,7 +465,8 @@ router.post('/update-scores', async (req, res) => {
         .map(key => parseInt(req.body[key]) || 0);
         await writeJSON(DB_PATH.players, players);
         
-        res.render("set_points", {message: "Updated successfully!", holes:  await getCups(), scores: players[playerIndex].strokes, pars: await getPars(), locks:tournament.cupLocks})
+        res.redirect(303, '/api/set-strokes'); // for 307 0r 308, you would need to change the set-strokes endpoint to POST
+        //res.render("set_points", {message: "Updated successfully!", holes:  await getCups(), scores: players[playerIndex].strokes, pars: await getPars(), locks:tournament.cupLocks})
     }
     else {
         res.render("login", { message: "Session has expired or the user doesn't exist! Try to login agian." });
@@ -475,25 +583,35 @@ router.get('/matches/current', async (req, res) => {
     }
 });
 
-router.get('/view-score', async (req, res) =>
-{
+router.get('/view-score', async (req, res) => {
     try {
         const players = await readJSON(DB_PATH.players);
-        const cups = await getCups();
+        const tournament = await readJSON(DB_PATH.tournament);
+        const cups = (tournament.cups) != undefined ? tournament.pars.length : 0;
+        
         const reqPlObj = players.map(player => ({
-                        name: player.name,
-                        strokes: player.strokes,
-                        score: player.score,
-                         scores: player.scores
+            name: player.name,
+            strokes: player.strokes,
+            points: player.points,
+            gross: player.gross,
+            net: player.net,
+            handicap: player.handicap,
+            totalPoints: player.totalPoints,
+            out: player.strokes.slice(0, 9).reduce((a, b) => a + (b || 0), 0),
+            in: player.strokes.slice(9).reduce((a, b) => a + (b || 0), 0)
         }));
         
-        res.render("score_table", {players: reqPlObj,cups:cups,path:'/api/view-score' })
-    } catch (error)
-    {
-
+        res.render("score_table", {
+            players: reqPlObj,
+            cups: cups,
+            tournament: tournament,
+            path:'/api/view-score'
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Server error');
     }
-})
-
+});
 router.get('/is-match-finished', async (req, res) => {
 
     res.json({isfinished: await !isOngoing()});
@@ -529,6 +647,11 @@ router.get('/admin', async (req, res) => {
             
             res.render('admin-page', {message:"tournament created succesfully!", players, tournament, cups:tournament.cups || 0, isOn, paused,idle: await isIdle()});
         }
+        else if (req.query.Tupdated == 'true')
+        {
+            
+            res.render('admin-page', {message:"tournament updated succesfully!", players, tournament, cups:tournament.cups || 0, isOn, paused,idle: await isIdle()});
+        }
         else if (req.query.started == 'true')
         {
             res.render('admin-page', {message:"tournament resumed!", players, tournament, cups:tournament.cups || 0, isOn, paused,idle: await isIdle()});
@@ -556,6 +679,10 @@ router.get('/admin', async (req, res) => {
         else if (req.query.Pdeleted == 'true')
         {
                 res.render('admin-page', {message:"Player deleted", players, tournament, cups:tournament.cups || 0, isOn, paused ,idle: await isIdle()});
+        }
+        else if (req.query.Csuccess == 'true')
+        {
+            res.render('admin-page', {message:"Course settings set", players, tournament, cups:tournament.cups || 0, isOn, paused ,idle: await isIdle()});
         }
         else
         {
@@ -585,7 +712,10 @@ router.get('/admin/get-data', async (req, res) =>
         const isOn = await isOngoing();
         const paused = await isPaused();
         const reqPlObj = players.map(player => ({
+                        id: player.id,
                         name: player.name,
+                        email: player.email,
+                        handicap: player.handicap,
                         strokes: player.strokes,
                         score: player.score,
                         scores: player.scores,
@@ -600,15 +730,114 @@ router.get('/admin/get-data', async (req, res) =>
      }
 })
 
-// Modified tournament creation endpoint
+router.post('/admin/course-setting', async (req, res) => {
+    try {
+        const tournament = await readJSON(DB_PATH.tournament);
+
+        tournament.courseRating = parseFloat( req.body.courseRating); tournament.slopeRating = parseInt(req.body.slopeRating);
+
+        await writeJSON(DB_PATH.tournament, tournament);
+
+        const course = {
+            courseRating : parseFloat( req.body.courseRating),
+            slopeRating : parseInt(req.body.slopeRating)
+        }
+        await writeJSON(DB_PATH.course, course);
+
+        res.redirect(303, '/api/admin?Csuccess=true');
+    } catch (error)
+    {
+        console.log(error);
+    }
+})
+
+router.post('/admin/update-tournament', async (req, res) =>
+{
+    try {
+        if (req.cookies.adminid == adminid) {
+            const current_tour = await readJSON(DB_PATH.tournament);
+            const current_status = current_tour.status;
+            let startDate = new Date(current_tour.startDate);
+            const endDate = new Date(req.body.endDate);
+            const now = new Date();
+            let status = current_status;
+            if (current_status  != "ongoing" && current_status != "paused")
+            {
+                startDate = new Date(req.body.startDate);
+
+                 let status = (now >= startDate) ? (now >= endDate) ? "finished" : "ongoing" : "idle";
+                // Clear existing timer
+                if (typeof existingTimer !== 'undefined') {
+                    clearTimeout(existingTimer);
+                }
+
+                // Set new timer if needed
+                if (status === "idle") {
+                    const timeDifference = startDate.getTime() - now.getTime();
+                    existingTimer = setTimeout(async () => {
+                        await startTournament();
+                    }, timeDifference);
+                }
+            }
+            //let status = now >= startDate ? "ongoing" : "idle";
+            const tournamentData = {
+                status,
+                startDate: req.body.startDate,
+                endDate: req.body.endDate,
+                cups: parseInt(req.body.cups) || 0,
+                mHandicap: parseFloat(req.body.mHandicap) || 54,
+                par: parseInt(req.body.par) || 0,
+                pars: Array.isArray(req.body.pars)
+                    ? req.body.pars.map(p => parseInt(p) || 0)
+                    : new Array(parseInt(req.body.cups) || 0).fill(0), // if it is not an array, just create a new array with cups no. of elements
+                
+                strokeIndex: Array.isArray(req.body.strokeIndex)
+                    ? req.body.strokeIndex.map(s => parseInt(s) || 0)
+                    : new Array(parseInt(req.body.cups) || 0).fill(0),
+                
+                courseRating: parseFloat(req.body.courseRating),
+                slopeRating: parseFloat(req.body.slopeRating),
+
+                cupLocks: new Array(parseInt(req.body.cups) || 0).fill(false)
+            };
+
+            const players = await readJSON(DB_PATH.players);
+            const maxHandicap = parseInt(req.body.mHandicap) || 54;
+
+            if (players && players.length > 0) {
+                players.forEach(player => {
+                    if (player.handicap > maxHandicap) {
+                        player.handicap = maxHandicap;
+                    }
+                });
+                await writeJSON(DB_PATH.players, players);
+            }
+
+
+            await writeJSON(DB_PATH.tournament, tournamentData);
+            res.redirect(303, '/api/admin?Tupdated=true');
+
+
+        }
+        else {
+            res.render('login', { isAdmin: true, message: "Not logged in as admin or session has expired! login!" })
+        }
+    }
+    catch (error)
+    {
+        console.log(error);
+    }
+})
+
+// tournament creation endpoint
 router.post('/admin/create-tournament', async (req, res) => {
     try {
         if (req.cookies.adminid == adminid) {
             const startDate = new Date(req.body.startDate);
             const endDate = new Date(req.body.endDate);
             const now = new Date();
-            let status = now >= startDate ? "ongoing" : "idle";
-
+            //let status = now >= startDate ? "ongoing" : "idle";
+            let status = (now >= startDate) ? (now >= endDate) ? "finished" : "ongoing" : "idle";
             // Clear existing timer
             if (typeof existingTimer !== 'undefined') {
                 clearTimeout(existingTimer);
@@ -628,11 +857,19 @@ router.post('/admin/create-tournament', async (req, res) => {
                 startDate: req.body.startDate,
                 endDate: req.body.endDate,
                 cups: parseInt(req.body.cups) || 0,
-                mHandicap: parseInt(req.body.mHandicap) || 54,
+                mHandicap: parseFloat(req.body.mHandicap) || 54,
                 par: parseInt(req.body.par) || 0,
                 pars: Array.isArray(req.body.pars)
                     ? req.body.pars.map(p => parseInt(p) || 0)
+                    : new Array(parseInt(req.body.cups) || 0).fill(0), // if it is not an array, just create a new array with cups no. of elements
+                
+                strokeIndex: Array.isArray(req.body.strokeIndex)
+                    ? req.body.strokeIndex.map(s => parseInt(s) || 0)
                     : new Array(parseInt(req.body.cups) || 0).fill(0),
+                
+                courseRating: parseFloat(req.body.courseRating),
+                slopeRating: parseFloat(req.body.slopeRating),
+                
                 cupLocks: new Array(parseInt(req.body.cups) || 0).fill(false)
             };
 
@@ -643,6 +880,14 @@ router.post('/admin/create-tournament', async (req, res) => {
                 players.forEach(player => {
                     if (player.handicap > maxHandicap) {
                         player.handicap = maxHandicap;
+                        player.strokes = [];
+                        player.points = [];
+                        player.out = null;
+                        player.in = null;
+                        player.gross = null;
+                        player.net = null;
+                        player.totalPoints = null;
+
                     }
                 });
                 await writeJSON(DB_PATH.players, players);
@@ -682,7 +927,9 @@ router.post('/admin/start-tournament', async (req, res) =>
 router.post('/admin/restart-tournament', async (req, res) =>
 {
     if (req.cookies.adminid == adminid) {
-        startTournament();
+        const tournament = await readJSON(DB_PATH.tournament);
+        tournament.status = "ongoing";
+        await writeJSON(DB_PATH.tournament, tournament);
         res.redirect(303, '/api/admin?started=true')
     }
     else
@@ -703,19 +950,43 @@ router.post('/admin/pause-tournament', async (req, res) =>
          res.render('login', {isAdmin:true, message:"Not logged in as admin or session has expired! login!"})
     }
 })
-router.post('/admin/stop-tournament', async (req, res) =>
-{
-    if (req.cookies.adminid == adminid)
-    {
-        stopTournament();
-        calcTotalScore();
-        res.redirect(303, '/api/admin?stopped=true');
-    }
-     else
-    {
-         res.render('login', {isAdmin:true, message:"Not logged in as admin or session has expired! login!"})
-    }
-})
+router.post('/admin/stop-tournament', async (req, res) => {
+   if (req.cookies.adminid != adminid) {
+       return res.render('login', {isAdmin:true, message:"Not logged in as admin or session has expired! login!"});
+   }
+
+    try {
+       await stopTournament();                                  //Check THIS TOMORROW
+       const players = await readJSON(DB_PATH.players);
+       const tournament = await readJSON(DB_PATH.tournament);
+       const uuid = crypto.randomUUID();
+       const filename = `${tournament.startDate}_${uuid}.json`;
+       
+       const tournamentData = {
+           ...tournament,
+           players: players,
+           endDate: new Date().toISOString()
+       };
+
+       const pastMatchesDir = path.join(__dirname, '../data/past_matches');
+       if (!fs.existsSync(pastMatchesDir)) {
+           fs.mkdirSync(pastMatchesDir, { recursive: true });
+       }
+
+       await fs.promises.writeFile(
+           path.join(pastMatchesDir, filename),
+           JSON.stringify(tournamentData, null, 2)
+       );
+
+       
+       await calcTotalScore();
+       
+       res.redirect(303, '/api/admin?stopped=true');
+   } catch (error) {
+       console.error('Error saving tournament:', error);
+       res.status(500).send('Error stopping tournament');
+   }
+});
 
 router.post('/admin/toggle-cup-lock', async (req, res) =>
 {
@@ -744,14 +1015,14 @@ router.delete('/admin/delete-player/:id', async (req, res) => {
 });
 
 
-router.post('/admin/edit-player', async (req, res) => {
+router.post('/admin/edit-player', async (req, res) => { //probably need to modify this in the future
     if (req.cookies.adminid == adminid)
     {
         const players = await readJSON(DB_PATH.players);
         const player = players.find(p => p.id == req.body.playerId);
         player.email = req.body.email;
         player.name = req.body.name;
-        player.handicap = parseInt(req.body.handicap);
+        player.handicap = parseFloat(req.body.handicap);
         await writeJSON(DB_PATH.players, players);
         res.redirect(303, '/api/admin?Pedited=true');
     }
@@ -779,13 +1050,16 @@ router.post('/admin/add-player', async (req, res) => {
             id: uuidv4(),
             name: req.body.name,
             email: req.body.email, //primary
-            handicap: parseInt(req.body.handicap),
-            isAdmin: false,
-            isEditedByAdmin:false,
+            handicap: parseFloat(req.body.handicap),
             strokes: [],
-            locks: [],
-            scores: [],
-            score: ''
+            points: [],
+            gross: null,
+            net: null,
+            out: null,
+            in: null,
+            totalPoints: null,
+            isAdmin: false,
+            isEditedByAdmin:false
         };
         
         players.push(newPlayer);
@@ -797,5 +1071,86 @@ router.post('/admin/add-player', async (req, res) => {
         res.render('login', {isAdmin:true, message:"Not logged in as admin or session has expired! login!"})
         }
 })
+
+router.post('/admin/tournament-list', async (req, res) => {
+    try {
+        const directoryPath = path.join(process.cwd(), 'data', 'past_matches');
+        const files = await fs.readdir(directoryPath);
+        const jsonFiles = files.filter(file => file.endsWith('.json'));
+        res.json({ files: jsonFiles });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: 'Failed to read tournament list' });
+    }
+});
+router.post('/admin/load-tournament', async (req, res) => {
+    try {
+        const { filename } = req.body;
+        const filePath = path.join(process.cwd(), 'data', 'past_matches', filename);
+        console.log(filePath)
+        const tournamentData = JSON.parse(await fs.readFile(filePath, 'utf8'));
+        
+        // Update tournament settings
+        const tournament = await readJSON(DB_PATH.tournament);
+        Object.assign(tournament, {
+            cups: tournamentData.cups,
+            mHandicap: tournamentData.mHandicap,
+            par: tournamentData.par,
+            pars: tournamentData.pars,
+            strokeIndex: tournamentData.strokeIndex,
+            courseRating: tournamentData.courseRating,
+            slopeRating: tournamentData.slopeRating,
+            cupLocks: []
+        });
+        
+        await writeJSON(DB_PATH.tournament, tournament);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to load tournament settings' });
+    }
+});
+
+router.post('/admin/import-players', async (req, res) => {
+    try {
+        const { filename, importScores } = req.body;
+        const filePath = path.join(process.cwd(), 'data', 'past_matches', filename);
+        const tournamentData = JSON.parse(await fs.readFile(filePath, 'utf8'));
+        
+        const players = await readJSON(DB_PATH.players);
+        
+        tournamentData.players.forEach(importPlayer => {
+            const playerData = {
+                id: importPlayer.id,
+                name: importPlayer.name,
+                email: importPlayer.email,
+                handicap: importPlayer.handicap,
+                strokes: [] ,
+                isAdmin: importPlayer.isAdmin || false
+            };
+            
+            if (importScores) {
+                playerData.strokes = importPlayer.strokes;
+                playerData.points = importPlayer.points;
+                playerData.gross = importPlayer.gross;
+                playerData.net = importPlayer.net;
+                playerData.out = importPlayer.out;
+                playerData.in = importPlayer.in;
+                playerData.totalPoints = importPlayer.totalPoints;
+            }
+            
+            const existingPlayerIndex = players.findIndex(p => p.id === importPlayer.id);
+            if (existingPlayerIndex !== -1) {
+                players[existingPlayerIndex] = playerData;
+            } else {
+                players.push(playerData);
+            }
+        });
+        
+        await writeJSON(DB_PATH.players, players);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to import players' });
+    }
+});
 
 module.exports = router;

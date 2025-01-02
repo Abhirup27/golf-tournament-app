@@ -4,7 +4,8 @@ const path = require('path');
 const DB_PATH = {
     players: path.join(__dirname, 'data', 'players.json'),
     tournament: path.join(__dirname, 'data', 'tournament.json'),
-    matches: path.join(__dirname, 'data', 'matches.json')
+    matches: path.join(__dirname, 'data', 'matches.json'),
+    course: path.join(__dirname, 'data', 'course.json' )
 };
 
 // Ensure data directory exists

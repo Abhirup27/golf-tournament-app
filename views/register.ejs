@@ -1,34 +1,23 @@
 <%- include("partials/header.ejs") %>
 <div class="max-w-md mx-auto">
-    <h2 class="text-2xl font-semibold mb-4" x-text="Player Registration'"></h2>
+    <h2 class="text-2xl font-semibold mb-4">Player Registration</h2>
     
- 
-    <!-- Register Form -->
     <form action="/api/register" method="post" class="space-y-4">
         <div class="space-y-2">
-            <!-- <div class="flex items-center">
-                <i class="ri-user-line mr-2"></i>
-                <input type="text" class="input w-full hover:border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-2 focus:outline-none " 
-                    name="username" placeholder="Username" required />
-            </div> -->
             <div class="flex items-center">
                 <i class="ri-mail-line mr-2"></i>
-                <input type="email" class="input w-full hover:border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-2 focus:outline-none " 
+                <input type="email" class="input w-full hover:border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-2 focus:outline-none"
                     name="email" placeholder="Email Address" required />
             </div>
             <div class="flex items-center">
                 <i class="ri-user-smile-line mr-2"></i>
-                <input type="text" class="input w-full hover:border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-2 focus:outline-none " 
+                <input type="text" class="input w-full hover:border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-2 focus:outline-none"
                     name="name" placeholder="Full Name" required />
             </div>
-            <!-- <div class="flex items-center">
-                <i class="ri-lock-line mr-2"></i>
-                <input type="password" class="input w-full hover:border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-2 focus:outline-none " 
-                    name="password" placeholder="Password" required />
-            </div> -->
-           <div class="flex items-center relative">
+            <div class="flex items-center relative">
                 <i class="ri-service-fill mr-2"></i>
-                <input type="number" max=<%if(locals.mHandicap){%>"<%=mHandicap%>" <%} else {%> "54" <%}%> min="0" class="input w-full hover:border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-2 focus:outline-none"
+                <input type="number" id="handicapResult" step="0.1" max=<%if(locals.mHandicap){%>"<%=mHandicap%>" <%} else {%> "54" <%}%> min="0" 
+                    class="input w-full hover:border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-2 focus:outline-none"
                     name="handicap" placeholder="handicap (max: <%= mHandicap || 54%>)" required />
                 <div class="group relative">
                     <i class="ri-information-2-fill ml-2 text-white cursor-help"></i>
@@ -37,20 +26,115 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Handicap Calculator Toggle -->
+            <div class="text-sm text-red-500 cursor-pointer hover:text-red-200" onclick="toggleCalculator()">
+                Calculate your handicap
+            </div>
+
+            <!-- Handicap Calculator Section -->
+            <div id="handicapCalculator" class="hidden space-y-2 p-4 bg-black rounded-lg">
+                <h3 class="font-semibold mb-2">Handicap Calculator</h3>
+                
+                <!-- Course Selection if available from server -->
+                <% if(locals.courses) { %>
+                <select id="courseSelect" class="input w-full" onchange="updateCourseDetails()">
+                    <option value="">Select a Course</option>
+                    <% courses.forEach(course => { %>
+                    <option value="<%= course.id %>" 
+                            data-rating="<%= course.rating %>" 
+                            data-slope="<%= course.slope %>">
+                        <%= course.name %>
+                    </option>
+                    <% }); %>
+                </select>
+                <% } %>
+
+                <!-- Manual Course Details -->
+                <div class="flex space-x-2">
+                    <input type="number" id="courseRating" step="0.1" placeholder="Course Rating" class="input w-1/2" />
+                    <input type="number" id="slopeRating" placeholder="Slope Rating" class="input w-1/2" />
+                </div>
+
+                <!-- Score Inputs -->
+                <div id="scoreInputs" class="space-y-2">
+                    <div class="flex space-x-2">
+                        <input type="number" placeholder="Score 1" class="input w-full score-input" />
+                    </div>
+                    <button type="button" onclick="addScoreInput()" class="text-sm text-red-500 hover:text-red-200">
+                        + Add another score
+                    </button>
+                </div>
+
+                <button type="button" onclick="calculateHandicap()" class="btn w-full text-white hover:bg-red-500">
+                    Calculate
+                </button>
+            </div>
+        </div>
+
         <button class="btn w-full flex items-center justify-center" type="submit">
             <i class="ri-user-add-line mr-2"></i>
             Register
         </button>
     </form>
-
-    <!-- Toggle Button -->
-     <!-- <div class="mt-4 text-center">
-        <button class="text-blue-500 hover:text-blue-700" 
-            x-text="isLogin ? 'Need an account? Register' : 'Already have an account? Login'"
-            @click="isLogin = !isLogin">
-        </button>
-    </div> -->
 </div>
 
+<script>
+function toggleCalculator() {
+    const calculator = document.getElementById('handicapCalculator');
+    calculator.classList.toggle('hidden');
+}
 
+function addScoreInput() {
+    const scoreInputs = document.getElementById('scoreInputs');
+    const newInput = document.createElement('div');
+    newInput.className = 'flex space-x-2';
+    newInput.innerHTML = `
+        <input type="number" placeholder="Score ${scoreInputs.children.length }" 
+               class="input w-full score-input" />
+    `;
+    scoreInputs.insertBefore(newInput, scoreInputs.lastElementChild);
+}
+
+function updateCourseDetails() {
+    const courseSelect = document.getElementById('courseSelect');
+    if (courseSelect) {
+        const selected = courseSelect.options[courseSelect.selectedIndex];
+        document.getElementById('courseRating').value = selected.dataset.rating || '';
+        document.getElementById('slopeRating').value = selected.dataset.slope || '';
+    }
+}
+
+function calculateHandicap() {
+    const scores = Array.from(document.getElementsByClassName('score-input'))
+        .map(input => Number(input.value))
+        .filter(score => !isNaN(score));
+    
+    const courseRating = Number(document.getElementById('courseRating').value);
+    const slopeRating = Number(document.getElementById('slopeRating').value);
+    
+    if (scores.length < 1) {
+        alert('Please enter at least one score');
+        return;
+    }
+    
+    // Calculate differentials
+    const differentials = scores.map(score => {
+        return ((score - courseRating) * 113) / slopeRating;
+    });
+    
+    // Get the best 8 differentials (or fewer if less available)
+    const sortedDifferentials = differentials.sort((a, b) => a - b);
+    const bestDifferentials = sortedDifferentials.slice(0, Math.min(8, sortedDifferentials.length));
+    
+    // Calculate handicap index
+    const handicapIndex = (bestDifferentials.reduce((a, b) => a + b, 0) / bestDifferentials.length) * 0.96;
+    
+    // Round to one decimal place
+    const finalHandicap = Math.round(handicapIndex * 10) / 10;
+    
+    // Update the handicap input in the registration form
+    document.getElementById('handicapResult').value = finalHandicap;
+}
+</script>
 <%- include("partials/footer.ejs") %>

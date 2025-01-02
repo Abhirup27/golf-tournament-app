@@ -1,17 +1,63 @@
 <%- include("partials/header.ejs") %>
 <div class="max-w-4xl mx-auto p-4">
+    <div class="mb-6 text-white">
+    <div class="bg-gray-800 p-4 rounded">
+        <h2 class="text-xl font-bold mb-2">Tournament Status</h2>
+        <p>Status: <span class="font-semibold"><%= tournament.status ? tournament.status.charAt(0).toUpperCase() + tournament.status.slice(1) : 'Not Started' %></span></p>
+        <p>Start Time: <span class="font-semibold"><%= tournament.startDate ? new Date(tournament.startDate).toLocaleString() : 'Not Set' %></span></p>
+    </div>
+</div>
+
+    <!-- Course Settings Section -->
+    <div class="mb-4">
+        <button onclick="toggleForm('courseSettings')" class="w-full bg-gray-800 p-3 text-left text-white hover:bg-gray-700">
+            Course Settings ▼
+        </button>
+        <div id="courseSettings" class="hidden bg-gray-900 p-4">
+            <form action="/api/admin/course-setting" method="POST" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-white">Course Rating</label>
+                        <input type="number" name="courseRating" step="0.1" class="w-full bg-gray-800 text-white p-2 rounded" placeholder="Enter course rating (e.g. 71.2)" value="<%= tournament.courseRating || '' %>" required>
+                    </div>
+                    <div>
+                        <label class="text-white">Slope Rating</label>
+                        <input type="number" name="slopeRating" class="w-full bg-gray-800 text-white p-2 rounded" placeholder="Enter slope rating (e.g. 123)" value="<%= tournament.slopeRating || '' %>" required>
+                    </div>
+                </div>
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                    Save Course Settings
+                </button>
+            </form>
+        </div>
+    </div>
+
     <!-- Tournament Creation Section -->
     <div class="mb-4">
         <button onclick="toggleForm('createTournament')" class="w-full bg-gray-800 p-3 text-left text-white hover:bg-gray-700">
-            Create Tournament ▼
+            Tournament Settings ▼
         </button>
         <div id="createTournament" class="hidden bg-gray-900 p-4">
-            <form action="/api/admin/create-tournament" method="POST" class="space-y-4">
+            <div class="mb-4">
+                <button onclick="loadTournamentList()" class="w-full bg-blue-600 p-3 text-left text-white hover:bg-blue-700" id="loadTournamentBtn" <%= tournament.status !== 'finished'  && (tournament.status =='ongoing' || tournament.status =='paused') ? 'disabled' : '' %>>
+                    Load Tournament Settings ▼
+                </button>
+                <div id="tournamentList" class="hidden bg-gray-900 p-4">
+                    <select id="tournamentSelect" class="w-full bg-gray-800 text-white p-2 rounded mb-4">
+                        <option value="">Select a tournament</option>
+                    </select>
+                    <button onclick="loadTournamentSettings()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                        Load Settings
+                    </button>
+                </div>
+            </div>
+
+            <form action="/api/admin/<%-tournament.status == undefined || tournament.status == "" || tournament.status == null || tournament.status == 'finished' ? 'create' : 'update' %>-tournament" method="POST" class="space-y-4">
+                <!-- Previous inputs remain the same until the pars section -->
                 <div>
                     <label class="text-white">Start Date</label>
                     <% if(isOn){%> <label class="right-0 text-right text-red-500 font-bold">(Tournament has started, end it to change)</label> <% }%> 
                     <input type="datetime-local" name="startDate" class="w-full bg-gray-800 text-white p-2 rounded" value = <%= tournament.startDate %> <% if(isOn) { %>  readonly  <%}%>  required>
-
                 </div>
                 <div>
                     <label class="text-white">End Date</label>
@@ -30,30 +76,55 @@
                     <input type="number" name="par" class="w-full bg-gray-800 text-white p-2 rounded" value=<%= tournament.par %> readonly required>
                 </div>
                 <div>
-                    <label class="text-white">Pars for each cup</label>
-                    <div class="grid grid-cols-6 gap-2">
+                    <label class="text-white">Pars and Stroke Index for each cup</label>
+                    <div class="grid grid-cols-3 gap-2">
                         <% for(let i = 0; i < tournament.cups; i++) { %>
-                            <div>
-                                <label class="text-white text-sm">Cup <%= i + 1 %></label>
-                                <input type="number" name="pars[]" class="w-full bg-gray-800 text-white p-2 rounded" oninput="updateTotalPar()" value=<%= tournament.pars[i] %> required>
+                            <div class="flex items-center space-x-2 <%= i % 3 === 2 ? '' : 'border-r border-gray-700 pr-2' %>">
+                                <div class="flex-1">
+                                    <label class="text-white text-sm">Cup <%= i + 1 %></label>
+                                    <input type="number" 
+                                           name="pars[]" 
+                                           class="w-full bg-gray-800 text-white p-2 rounded" 
+                                           oninput="updateTotalPar()" 
+                                           value=<%= tournament.pars[i] %> 
+                                           placeholder="Par"
+                                           required>
+                                    <input type="number" 
+                                           name="strokeIndex[]" 
+                                           class="w-full bg-gray-800 text-white p-2 rounded mt-2" 
+                                           value=<%= tournament.strokeIndex[i] || null%> 
+                                           placeholder="Stroke index"
+                                           min="1"
+                                           max=<%= tournament.cups %>
+                                           required>
+                                </div>
                             </div>
                         <% } %>
                     </div>
+                    <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-white">Course Rating</label>
+                        <input type="number" name="courseRating" step="0.1" class="w-full bg-gray-800 text-white p-2 rounded" placeholder="Enter course rating (e.g. 71.2)" value="<%= tournament.courseRating || '' %>" required>
+                    </div>
+                    <div>
+                        <label class="text-white">Slope Rating</label>
+                        <input type="number" name="slopeRating" class="w-full bg-gray-800 text-white p-2 rounded" placeholder="Enter slope rating (e.g. 123)" value="<%= tournament.slopeRating || '' %>" required>
+                    </div>
+                </div>
                 </div>
                 <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                    Create Tournament
+                    <%-(tournament.status == undefined || tournament.status == "" || tournament.status == null || tournament.status == 'finished') ? 'Create' : 'Update' %> Tournament
                 </button>
             </form>
         </div>
     </div>
-
     <!-- Tournament Controls Section -->
     <div class="mb-4">
         <button onclick="toggleForm('tournamentControls')" class="w-full bg-gray-800 p-3 text-left text-white hover:bg-gray-700">
             Tournament Controls ▼
         </button>
         <div id="tournamentControls" class="hidden bg-gray-900 p-4">
-            <div class="space-x-4">
+            <div class="grid grid-cols-2 gap-4">
                 <form action="/api/admin/<%- (paused) ? 'restart' : (idle) ? 'start' : 'pause' %>-tournament" method="post">
                     <button class="<%- (paused) ? 'bg-green-600 hover:bg-green-700' : 'bg-yellow-600 hover:bg-yellow-700' %> text-white px-4 py-2 rounded">
                         <%- (paused) ? 'Restart' : (idle) ? 'Start' : 'Pause' %> Tournament
@@ -74,15 +145,17 @@
     <button onclick="toggleForm('scoreboardControls')" class="w-full bg-gray-800 p-3 text-left text-white hover:bg-gray-700">
         Scoreboard Controls ▼
     </button>
-    <div id="scoreboardControls" class="hidden bg-gray-900 p-4">
-        <div class="flex justify-end mb-4">
-            <button id="editScoresButton" onclick="toggleScoreEditing()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" <% if(!paused && !idle){ %>disabled=disable <% } %> >
-                Edit Scores
-            </button>
-            <button id="saveScoresButton" onclick="saveScores()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 ml-2 hidden">
-                Save Changes
-            </button>
-        </div>
+<div id="scoreboardControls" class="hidden bg-gray-900 p-4">
+    <div class="flex justify-end mb-4">
+        <button id="editScoresButton" onclick="toggleScoreEditing()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" <% if(!paused && !idle){ %>disabled=disable <% } %> >
+            Edit Strokes
+        </button>
+        <button id="saveScoresButton" onclick="saveScores()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 ml-2 hidden">
+            Save Changes
+        </button>
+    </div>
+    <div class="overflow-x-auto">
+        <div class="inline-block min-w-full align-middle">
         <table class="w-full text-white">
             <thead>
                 <tr>
@@ -111,7 +184,7 @@
                         <% }); %>
                         <td class="p-3 text-center">
                             <label class="relative inline-flex items-center cursor-pointer">
-                                <input name="cupLocks[]" type="checkbox" class="sr-only peer" <%= tournament.cupLocks[i] ? 'checked' : '' %> onchange="toggleCupLock(<%= i %>)">
+                                <input name="cupLocks[]" type="checkbox" class="sr-only peer" <%= locals.tournament.cuplocks && tournament.cupLocks[i] ? 'checked' : '' %> onchange="toggleCupLock(<%= i %>)">
                                 <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                             </label>
                         </td>
@@ -121,7 +194,7 @@
         </table>
     </div>
 </div>
-
+</div>
  <!-- Player Controls Section -->
     <div class="mb-4">
         <button onclick="toggleForm('playerControls')" class="w-full bg-gray-800 p-3 text-left text-white hover:bg-gray-700">
@@ -131,6 +204,23 @@
             <button onclick="toggleAddPlayerForm()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 mb-4">
                 Add Player
             </button>
+            <button onclick="loadPlayerList()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mb-4 ml-2">
+                Import Players
+            </button>
+            <div id="playerImportList" class="hidden mb-4 bg-gray-800 p-4 rounded">
+                <select id="playerImportSelect" class="w-full bg-gray-700 text-white p-2 rounded mb-4">
+                    <option value="">Select a tournament</option>
+                </select>
+                <div class="mb-4">
+                    <label class="inline-flex items-center">
+                        <input type="checkbox" id="importScores" class="form-checkbox text-blue-600">
+                        <span class="ml-2 text-white">Import strokes and points</span>
+                    </label>
+                </div>
+                <button onclick="importPlayers()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                    Import Players
+                </button>
+            </div>
             
             <!-- Add Player Form -->
             <div id="addPlayerForm" class="hidden mb-4 bg-gray-800 p-4 rounded">
@@ -225,7 +315,7 @@
 
 function toggleForm(formId) {
     // Hide all forms first
-    ['createTournament', 'tournamentControls', 'scoreboardControls', 'playerControls'].forEach(id => {
+    ['courseSettings', 'createTournament', 'tournamentControls', 'scoreboardControls', 'playerControls'].forEach(id => {
         document.getElementById(id).classList.add('hidden');
     });
     // Show the selected form
@@ -269,58 +359,85 @@ function toggleIds() {
 const totalParInput = document.querySelector('input[name="par"]');
 // Select the "cups" input and the div containing the pars
 const cupsInput = document.querySelector('input[name="cups"]');
-const parsContainer = document.querySelector('div.grid.grid-cols-6.gap-2');
+//const parsContainer = document.querySelector('div.grid.grid-cols-6.gap-2');
 
-// Function to update the pars based on the number of cups
 function updatePars() {
-  const cups = parseInt(cupsInput.value, 10) || 0;
+    const cups = parseInt(cupsInput.value, 10) || 0;
+    const parsContainer = document.querySelector('div.grid.grid-cols-3.gap-2');
+    
+    if (!parsContainer) return;
 
-  // Get the existing values from the inputs
-  const existingValues = Array.from(parsContainer.querySelectorAll('input[name="pars[]"]'))
-    .map(input => input.value);
+    // Get the existing values from the inputs
+    const existingPars = Array.from(parsContainer.querySelectorAll('input[name="pars[]"]'))
+        .map(input => input.value);
+    const existingStrokeIndices = Array.from(parsContainer.querySelectorAll('input[name="strokeIndex[]"]'))
+        .map(input => input.value);
 
-  // Clear the current content
-  parsContainer.innerHTML = '';
+    // Clear the current content
+    parsContainer.innerHTML = '';
 
-  // Generate new pars input fields
-  for (let i = 0; i < cups; i++) {
-    const div = document.createElement('div');
+    // Generate new input fields
+    for (let i = 0; i < cups; i++) {
+        const div = document.createElement('div');
+        div.className = `flex items-center space-x-2 ${i % 3 === 2 ? '' : 'border-r border-gray-700 pr-2'}`;
 
-    const label = document.createElement('label');
-    label.className = 'text-white text-sm';
-    label.textContent = `Cup ${i + 1}`;
+        const innerDiv = document.createElement('div');
+        innerDiv.className = 'flex-1';
 
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.name = 'pars[]';
-    input.className = 'w-full bg-gray-800 text-white p-2 rounded';
-    input.required = true;
+        const label = document.createElement('label');
+        label.className = 'text-white text-sm';
+        label.textContent = `Cup ${i + 1}`;
 
-    // Preserve the existing value if it exists
-    if (existingValues[i] !== undefined) {
-      input.value = existingValues[i];
+        // Create par input
+        const parInput = document.createElement('input');
+        parInput.type = 'number';
+        parInput.name = 'pars[]';
+        parInput.className = 'w-full bg-gray-800 text-white p-2 rounded';
+        parInput.required = true;
+        parInput.placeholder = 'Par';
+        if (existingPars[i] !== undefined) {
+            parInput.value = existingPars[i];
+        }
+        parInput.addEventListener('input', updateTotalPar);
+
+        // Create stroke index input
+        const strokeIndexInput = document.createElement('input');
+        strokeIndexInput.type = 'number';
+        strokeIndexInput.name = 'strokeIndex[]';
+        strokeIndexInput.className = 'w-full bg-gray-800 text-white p-2 rounded mt-2';
+        strokeIndexInput.required = true;
+        strokeIndexInput.placeholder = 'Stroke index';
+        strokeIndexInput.min = 1;
+        strokeIndexInput.max = cups;
+        if (existingStrokeIndices[i] !== undefined) {
+            strokeIndexInput.value = existingStrokeIndices[i];
+        }
+
+        innerDiv.appendChild(label);
+        innerDiv.appendChild(parInput);
+        innerDiv.appendChild(strokeIndexInput);
+        div.appendChild(innerDiv);
+        parsContainer.appendChild(div);
     }
-
-    input.addEventListener('input', updateTotalPar);
-
-    div.appendChild(label);
-    div.appendChild(input);
-    parsContainer.appendChild(div);
+    
     updateTotalPar();
-  }
 }
+
 
 function updateTotalPar() {
-  const parsInputs = parsContainer.querySelectorAll('input[name="pars[]"]');
-  const total = Array.from(parsInputs).reduce((sum, input) => {
-    const value = parseInt(input.value, 10);
-    return sum + (isNaN(value) ? 0 : value);
-  }, 0);
+    const parsContainer = document.querySelector('div.grid.grid-cols-3.gap-2');
+    if (!parsContainer) return;
 
-  // Update the Total Par input
-  totalParInput.value = total;
+    const parsInputs = parsContainer.querySelectorAll('input[name="pars[]"]');
+    const total = Array.from(parsInputs).reduce((sum, input) => {
+        const value = parseInt(input.value, 10);
+        return sum + (isNaN(value) ? 0 : value);
+    }, 0);
+
+    if (totalParInput) {
+        totalParInput.value = total;
+    }
 }
-
 
 // Add event listener to the cups input field
 cupsInput.addEventListener('input', updatePars);
@@ -424,8 +541,36 @@ function updateScoreboard() {
                     form.action = '/api/admin/start-tournament';
                     button.innerHTML = 'Start Tournament';
                     button.className = 'bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700';
+
+
+                    // Update players table when idle
+                    const playersTableBody = document.querySelector('#playerControls table tbody');
+                    if (playersTableBody) {
+                        playersTableBody.innerHTML = '';
+                        data.players.forEach(player => {
+                            playersTableBody.innerHTML += `
+                                <tr class="border-t border-gray-700">
+                                    <td class="p-3 player-id" data-full-id="${player.id}">
+                                        ${formatId(player.id)}
+                                    </td>
+                                    <td class="p-3">${player.name}</td>
+                                    <td class="p-3">${player.email}</td>
+                                    <td class="p-3">${player.handicap || 'N/A'}</td>
+                                    <td class="p-3 text-center">
+                                        <button onclick="editPlayer('${player.id}')" class="bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700 mr-2">
+                                            Edit
+                                        </button>
+                                        <button onclick="deletePlayer('${player.id}')" class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                    }
+
                 } else if(data.paused){
-                    form.action = '/api/admin/start-tournament';
+                    form.action = '/api/admin/restart-tournament';
                     button.innerHTML = 'Resume Tournament';
                     button.className = 'bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700';
                 }
@@ -444,7 +589,20 @@ function updateScoreboard() {
 
                 if (scoreboardControls) {
                     const existingTable = scoreboardControls.querySelector('table');
+
+                        
                     if (existingTable) {
+
+                        const headerRow = existingTable.querySelector('thead tr');
+                        // Keep the first column (Cup)
+                        headerRow.innerHTML = '<th class="p-3 text-left">Cup</th>';
+                        // Add player columns
+                        data.players.forEach(player => {
+                            headerRow.innerHTML += `<th class="p-3 text-center">${player.name}</th>`;
+                        });
+                        // Add lock/unlock column
+                        headerRow.innerHTML += '<th class="p-3 text-center">Lock/Unlock</th>';
+
                         const tbody = existingTable.querySelector('tbody');
                         const rows = tbody.querySelectorAll('tr');
                         
@@ -560,6 +718,97 @@ function updateScoreboard() {
 
             // Make players data available to JavaScript
            
+function loadTournamentList() {
+    const listDiv = document.getElementById('tournamentList');
+    listDiv.classList.toggle('hidden');
+    
+    if (!listDiv.classList.contains('hidden')) {
+        fetch('/api/admin/tournament-list', {
+            method: 'POST',
+            credentials: 'include'
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log(data);
+            const select = document.getElementById('tournamentSelect');
+            select.innerHTML = '<option value="">Select a tournament</option>';
+            data.files.forEach(file => {
+                const option = document.createElement('option');
+                option.value = file;
+                option.textContent = file.replace('.json', '');
+                select.appendChild(option);
+            });
+        });
+    }
+}
+
+function loadTournamentSettings() {
+    const selectedFile = document.getElementById('tournamentSelect').value;
+    if (!selectedFile) return;
+
+    fetch('/api/admin/load-tournament', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ filename: selectedFile })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        }
+    });
+}
+
+function loadPlayerList() {
+    const listDiv = document.getElementById('playerImportList');
+    listDiv.classList.toggle('hidden');
+    
+    if (!listDiv.classList.contains('hidden')) {
+        fetch('/api/admin/tournament-list', {
+            method: 'POST',
+            credentials: 'include'
+        })
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('playerImportSelect');
+            select.innerHTML = '<option value="">Select a tournament</option>';
+            data.files.forEach(file => {
+                const option = document.createElement('option');
+                option.value = file;
+                option.textContent = file.replace('.json', '');
+                select.appendChild(option);
+            });
+        });
+    }
+}
+
+function importPlayers() {
+    const selectedFile = document.getElementById('playerImportSelect').value;
+    const importScores = document.getElementById('importScores').checked;
+    
+    if (!selectedFile) return;
+
+    fetch('/api/admin/import-players', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+            filename: selectedFile,
+            importScores: importScores
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        }
+    });
+}
 
 </script>
 <%- include("partials/footer.ejs") %>
