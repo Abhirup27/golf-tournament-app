@@ -39,8 +39,8 @@ const calculateStablefordPoints = (netStrokes, par) => {
     }
 };
 
-const calculateCourseHandicap = (playerHandicap, slopeRating) => {
-    return Math.round(playerHandicap * (slopeRating / 113));
+const calculateCourseHandicap = (playerHandicap, slopeRating, courseRating, par) => {
+    return Math.round(playerHandicap * (slopeRating / 113) + (courseRating - par));
 };
 
 
@@ -199,16 +199,19 @@ const calcScore = async (idx) => {
                 // Calculate course handicap
                 const courseHandicap = calculateCourseHandicap(
                     player.handicap, 
-                    tournament.slopeRating
+                    tournament.slopeRating,
+                    tournament.courseRating,
+                    tournament.par
                 );
-                
+                // console.log('course handicap ', courseHandicap)
+                // console.log('stroke index for ',idx,' hole',tournament.strokeIndex[idx] )
                 // Get handicap strokes for this hole
                 const handicapStrokes = getHandicapStrokesForHole(
                     courseHandicap, 
                     tournament.strokeIndex[idx],
                     tournament.cups
                 );
-                
+                // console.log('handicap strokes for ',idx,' hole',handicapStrokes )
                 // Calculate net strokes for the hole
                 const netStrokes = player.strokes[idx] - handicapStrokes;
                 
@@ -487,6 +490,8 @@ router.get('/get-scores', async (req, res) => {
 router.get('/get-scoreboard', async (req, res) => {
     try {
         const players = await readJSON(DB_PATH.players);
+        const tournament = await readJSON(DB_PATH.tournament)
+        players.cups = tournament.cups || 18;
         res.json(players);
     } catch (error) {
         console.error('Error fetching scoreboard:', error);

@@ -184,7 +184,7 @@
                         <% }); %>
                         <td class="p-3 text-center">
                             <label class="relative inline-flex items-center cursor-pointer">
-                                <input name="cupLocks[]" type="checkbox" class="sr-only peer" <%= locals.tournament.cuplocks && tournament.cupLocks[i] ? 'checked' : '' %> onchange="toggleCupLock(<%= i %>)">
+                                <input name="cupLocks[]" type="checkbox" class="sr-only peer" <%= tournament.cupLocks[i] ? 'checked' : '' %> onchange="toggleCupLock(<%= i %>)">
                                 <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                             </label>
                         </td>
@@ -605,7 +605,7 @@ function updateScoreboard() {
 
                         const tbody = existingTable.querySelector('tbody');
                         const rows = tbody.querySelectorAll('tr');
-                        
+                        console.log(rows.length)
                         // If rows don't exist, create them. Otherwise just update scores
                         if (rows.length === 0) {
                             // Create new rows
@@ -640,9 +640,10 @@ function updateScoreboard() {
 
                             const lockCell = document.createElement("td");
                             lockCell.className = "p-3 text-center";
+                            console.log(data.cupLocks[i])
                             lockCell.innerHTML = `
                                 <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" class="sr-only peer" onchange="toggleCupLock(${i})">
+                                    <input name="cupLocks[]" type="checkbox" class="sr-only peer"  ${data.cupLocks[i] ? 'checked' : ''} onchange="toggleCupLock(${i})"  >
                                     <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                                 </label>
                             `;

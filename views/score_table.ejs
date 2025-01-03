@@ -1,55 +1,119 @@
 <%- include("partials/header.ejs") %>
 <div class="w-screen min-h-screen p-4 bg-black">
-    <table class="w-full text-white text-lg lg:text-2xl">
-        <thead>
-            <tr class="border-b border-gray-700">
-                <th class="text-left py-4 px-2">PLAYER</th>
-                <% for(let i = 0; i < cups; i++) { %>
-                    <th class="text-center border-l border-gray-700 px-2">
-                        <div class="flex flex-col items-center text-base">
-                            <div>Hole <%= i + 1 %></div>
-                            <div class="flex gap-1">
-                                <span class="text-yellow-400">Par <%= tournament.pars[i] %></span>
-                                <span class="text-pink-400">SI <%= tournament.strokeIndex[i] %></span>
-                            </div>
-                        </div>
-                    </th>
+    <div class="overflow-x-auto relative">
+        <table class="w-full text-white text-lg lg:text-2xl table-fixed">
+            <colgroup>
+                <col class="w-[200px] sticky left-0">
+                <% for(let i = 0; i < cups/2; i++) { %>
+                    <col class="w-[100px]">
                 <% } %>
-                <th class="text-center border-l border-gray-700">OUT</th>
-                <th class="text-center border-l border-gray-700">IN</th>
-                <th class="text-center border-l border-gray-700">GROSS</th>
-                <th class="text-center border-l border-gray-700">Hdcp</th>
-                <th class="text-center border-l border-gray-700">NET</th>
-                <th class="text-center border-l border-gray-700">Total Points</th>
-            </tr>
-        </thead>
-        <tbody>
-            <% players.forEach(function(player) { %>
-                <tr class="border-b border-gray-700 hover:bg-gray-900" data-player="<%= player.name %>">
-                    <td class="py-2 px-2"><%= player.name %></td>
-                    <% for(let i = 0; i < cups; i++) { %>
-                        <td class="text-center border-l border-gray-700 px-2">
-                            <div class="flex flex-col">
-                                <span><%= player.strokes[i] || '-' %></span>
-                                <span class="text-base <%= player.points && player.points[i] > 0 ? 'text-green-500' : player.points && player.points[i] < 0 ? 'text-red-500' : '' %>">
-                                    <%= player.points != undefined ? player.points[i] : '' %>
-                                </span>
+                <col class="w-[80px]"> <!-- OUT column -->
+                <% for(let i = cups/2; i < cups; i++) { %>
+                    <col class="w-[100px]">
+                <% } %>
+                <col class="w-[80px]">
+                <col class="w-[80px]">
+                <col class="w-[80px]">
+                <col class="w-[80px]">
+                <col class="w-[100px]">
+            </colgroup>
+            <thead>
+                <tr class="border-b border-gray-700">
+                    <th class="text-left py-4 px-2 sticky left-0 z-10 bg-black">PLAYER</th>
+                    <% for(let i = 0; i < cups/2; i++) { %>
+                        <th class="text-center border-l border-gray-700 px-2">
+                            <div class="flex flex-col items-center text-base">
+                                <div>Hole <%= i + 1 %></div>
+                                <div class="flex gap-1">
+                                    <span class="text-yellow-400">Par <%= tournament.pars[i] %></span>
+                                    <span class="text-pink-400">SI <%= tournament.strokeIndex[i] %></span>
+                                </div>
                             </div>
-                        </td>
+                        </th>
                     <% } %>
-                    <td class="text-center border-l border-gray-700"><%= player.out || '-' %></td>
-                    <td class="text-center border-l border-gray-700"><%= player.in || '-' %></td>
-                    <td class="text-center border-l border-gray-700"><%= player.gross || '-' %></td>
-                    <td class="text-center border-l border-gray-700"><%= player.handicap || '-' %></td>
-                    <td class="text-center border-l border-gray-700"><%= player.net || '-' %></td>
-                    <td class="text-center border-l border-gray-700 font-bold"><%= player.totalPoints || '-' %></td>
+                    <th class="text-center border-l border-gray-700">OUT</th>
+                    <% for(let i = cups/2; i < cups; i++) { %>
+                        <th class="text-center border-l border-gray-700 px-2">
+                            <div class="flex flex-col items-center text-base">
+                                <div>Hole <%= i + 1 %></div>
+                                <div class="flex gap-1">
+                                    <span class="text-yellow-400">Par <%= tournament.pars[i] %></span>
+                                    <span class="text-pink-400">SI <%= tournament.strokeIndex[i] %></span>
+                                </div>
+                            </div>
+                        </th>
+                    <% } %>
+                    <th class="text-center border-l border-gray-700">IN</th>
+                    <th class="text-center border-l border-gray-700">GROSS</th>
+                    <th class="text-center border-l border-gray-700">Hdcp</th>
+                    <th class="text-center border-l border-gray-700">NET</th>
+                    <th class="text-center border-l border-gray-700">Total Points</th>
                 </tr>
-            <% }); %>
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                <% players.forEach(function(player) { %>
+                    <tr class="border-b border-gray-700 hover:bg-gray-900" data-player="<%= player.name %>">
+                        <td class="py-2 px-2 sticky left-0 z-10 bg-black"><%= player.name %></td>
+                        <% for(let i = 0; i < cups/2; i++) { %>
+                            <td class="text-center border-l border-gray-700 px-2">
+                                <div class="flex flex-col">
+                                    <span><%= player.strokes[i] || '-' %></span>
+                                    <span class="text-base <%= player.points && player.points[i] > 0 ? 'text-green-500' : player.points && player.points[i] < 0 ? 'text-red-500' : '' %>">
+                                        <%= player.points != undefined ? player.points[i] : '' %>
+                                    </span>
+                                </div>
+                            </td>
+                        <% } %>
+                        <td class="text-center border-l border-gray-700"><%= player.out || '-' %></td>
+                        <% for(let i = cups/2; i < cups; i++) { %>
+                            <td class="text-center border-l border-gray-700 px-2">
+                                <div class="flex flex-col">
+                                    <span><%= player.strokes[i] || '-' %></span>
+                                    <span class="text-base <%= player.points && player.points[i] > 0 ? 'text-green-500' : player.points && player.points[i] < 0 ? 'text-red-500' : '' %>">
+                                        <%= player.points != undefined ? player.points[i] : '' %>
+                                    </span>
+                                </div>
+                            </td>
+                        <% } %>
+                        <td class="text-center border-l border-gray-700"><%= player.in || '-' %></td>
+                        <td class="text-center border-l border-gray-700"><%= player.gross || '-' %></td>
+                        <td class="text-center border-l border-gray-700"><%= player.handicap || '-' %></td>
+                        <td class="text-center border-l border-gray-700"><%= player.net || '-' %></td>
+                        <td class="text-center border-l border-gray-700 font-bold"><%= player.totalPoints || '-' %></td>
+                    </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <script>
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+if (isMobile) {
+    document.querySelector('.overflow-x-auto').classList.add('touch-pan-x');
+}
+
+function updateColumnWidths() {
+    const headerRow = document.querySelector('thead tr');
+    const bodyRows = document.querySelectorAll('tbody tr');
+    
+    if (!headerRow || !bodyRows.length) return;
+    
+    const headers = headerRow.querySelectorAll('th');
+    
+    headers.forEach((header, index) => {
+        const width = header.offsetWidth;
+        bodyRows.forEach(row => {
+            const cell = row.children[index];
+            if (cell) {
+                cell.style.width = `${width}px`;
+                cell.style.minWidth = `${width}px`;
+            }
+        });
+    });
+}
+
 async function updateScoreboard() {
     try {
         const scoreboardResponse = await fetch('/api/get-scoreboard');
@@ -63,38 +127,52 @@ async function updateScoreboard() {
             row.className = 'border-b border-gray-700 hover:bg-gray-900';
             row.setAttribute('data-player', player.name);
 
+            // Split the strokes and points into front nine and back nine
+            const frontNine = player.strokes.slice(0, players.cups/2);
+            const backNine = player.strokes.slice(players.cups/2);
+            const frontNinePoints = player.points ? player.points.slice(0, players.cups/2) : [];
+            const backNinePoints = player.points ? player.points.slice(players.cups/2) : [];
+
             const cells = [
-                player.name,
-                ...player.strokes.map((stroke, i) => ({
-                    stroke: stroke || '-',
-                    points: player.points[i] || ''
+                { content: player.name, sticky: true },
+                ...frontNine.map((stroke, i) => ({
+                    content: {
+                        stroke: stroke || '-',
+                        points: frontNinePoints[i] || ''
+                    }
                 })),
-                player.out || '-',
-                player.in || '-',
-                player.gross || '-',
-                player.handicap || '-',
-                player.net || '-',
-                player.totalPoints || '-'
+                { content: player.out || '-' }, // OUT score after front nine
+                ...backNine.map((stroke, i) => ({
+                    content: {
+                        stroke: stroke || '-',
+                        points: backNinePoints[i] || ''
+                    }
+                })),
+                { content: player.in || '-' },
+                { content: player.gross || '-' },
+                { content: player.handicap || '-' },
+                { content: player.net || '-' },
+                { content: player.totalPoints || '-', bold: true }
             ];
 
             cells.forEach((cell, i) => {
                 const td = document.createElement('td');
-                td.className = 'text-center border-l border-gray-700 px-2' + (i === 0 ? ' py-2' : '');
+                td.className = 'text-center border-l border-gray-700 px-2' + (i === 0 ? ' py-2 sticky left-0 z-10 bg-black' : '');
                 
-                if (typeof cell === 'object') {
+                if (typeof cell.content === 'object' && 'stroke' in cell.content) {
                     td.innerHTML = `
                         <div class="flex flex-col">
-                            <span>${cell.stroke}</span>
-                            <span class="text-base ${cell.points > 0 ? 'text-green-500' : cell.points < 0 ? 'text-red-500' : ''}">
-                                ${cell.points}
+                            <span>${cell.content.stroke}</span>
+                            <span class="text-base ${cell.content.points > 0 ? 'text-green-500' : cell.content.points < 0 ? 'text-red-500' : ''}">
+                                ${cell.content.points}
                             </span>
                         </div>
                     `;
                 } else {
-                    td.textContent = cell;
+                    td.textContent = cell.content;
                 }
                 
-                if (i === cells.length - 1) {
+                if (cell.bold) {
                     td.classList.add('font-bold');
                 }
                 
@@ -104,6 +182,9 @@ async function updateScoreboard() {
             tbody.appendChild(row);
         });
 
+        await new Promise(resolve => setTimeout(resolve, 0)); // Let DOM update
+        updateColumnWidths();
+        
         const statusResponse = await fetch('/api/tournament-status');
         const { tournamentFinished } = await statusResponse.json();
 
@@ -124,6 +205,8 @@ async function updateScoreboard() {
         console.error('Error updating scoreboard:', error);
     }
 }
+
+window.addEventListener('resize', updateColumnWidths);
 
 updateScoreboard();
 setInterval(updateScoreboard, 5000);

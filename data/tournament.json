@@ -1,6 +1,6 @@
 {
-  "status": "idle",
-  "startDate": "2025-01-04T06:00",
+  "status": "ongoing",
+  "startDate": "2025-01-03T08:53",
   "endDate": "2025-01-05T06:00",
   "cups": 18,
   "mHandicap": 36,
@@ -46,6 +46,6 @@
     2
   ],
   "courseRating": 72.1,
-  "slopeRating": 123,
-  "cupLocks": []
+  "slopeRating": 123
+
 }
