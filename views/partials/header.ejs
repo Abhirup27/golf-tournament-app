@@ -28,6 +28,9 @@
                         </li>
                     <% } %>
                     <li><a href="/" class="hover:text-primary">Home</a></li>
+                    <% if (locals.path === '/api/set-strokes') { %>
+                        <li><a href="/api/view-score" class="hover:text-primary">View Scores</a></li>
+                    <% } %>
                     <li><a href="/about" class="hover:text-primary">About</a></li>
                     <% if (locals.logged && logged === true) { %>
                         <li><a href="/api/logout" class="hover:text-primary">Log Out</a></li>
@@ -53,4 +56,5 @@
         <% } %>
     </header>
 <% } %>
+
 <main class="<%= locals.path === '/api/view-score' ? 'w-screen h-screen flex items-center justify-center' : 'container mx-auto px-4 py-8' %>">

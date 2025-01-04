@@ -1,0 +1,16 @@
+[{
+
+    "Group 1": 
+    {
+        "players_id": ["id1", "id2"],
+        "group_cup_locks": [true,false, true],
+        "assigned_cup": 1
+
+    },
+    "unassigned_1":
+    {
+        "players_id": ["id5", "id6"],
+        "group_cup_locks": [true,false, true]
+    }
+}
+]

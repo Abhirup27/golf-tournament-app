@@ -2,12 +2,13 @@
 <div class="w-screen min-h-screen p-4 bg-black">
     <div class="overflow-x-auto relative">
         <table class="w-full text-white text-lg lg:text-2xl table-fixed">
+
             <colgroup>
                 <col class="w-[200px] sticky left-0">
                 <% for(let i = 0; i < cups/2; i++) { %>
                     <col class="w-[100px]">
                 <% } %>
-                <col class="w-[80px]"> <!-- OUT column -->
+                <col class="w-[80px]">
                 <% for(let i = cups/2; i < cups; i++) { %>
                     <col class="w-[100px]">
                 <% } %>
@@ -31,7 +32,14 @@
                             </div>
                         </th>
                     <% } %>
-                    <th class="text-center border-l border-gray-700">OUT</th>
+                     <th class="text-center border-l border-gray-700">
+                        <div class="flex flex-col items-center">
+                            <div class="text-xl font-bold">OUT</div>
+                            <div class="text-sm text-yellow-400">
+                                <%= tournament.pars.slice(0, cups/2).reduce((sum, par) => sum + par, 0) %>
+                            </div>
+                        </div>
+                    </th>
                     <% for(let i = cups/2; i < cups; i++) { %>
                         <th class="text-center border-l border-gray-700 px-2">
                             <div class="flex flex-col items-center text-base">
@@ -43,14 +51,21 @@
                             </div>
                         </th>
                     <% } %>
-                    <th class="text-center border-l border-gray-700">IN</th>
+                    <th class="text-center border-l border-gray-700">
+                        <div class="flex flex-col items-center">
+                            <div class="text-xl font-bold">IN</div>
+                            <div class="text-sm text-yellow-400">
+                                <%= tournament.pars.slice(cups/2).reduce((sum, par) => sum + par, 0) %>
+                            </div>
+                        </div>
+                    </th>
                     <th class="text-center border-l border-gray-700">GROSS</th>
                     <th class="text-center border-l border-gray-700">Hdcp</th>
                     <th class="text-center border-l border-gray-700">NET</th>
                     <th class="text-center border-l border-gray-700">Total Points</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="scoreboardBody">
                 <% players.forEach(function(player) { %>
                     <tr class="border-b border-gray-700 hover:bg-gray-900" data-player="<%= player.name %>">
                         <td class="py-2 px-2 sticky left-0 z-10 bg-black"><%= player.name %></td>
@@ -85,14 +100,69 @@
             </tbody>
         </table>
     </div>
+
+    <div class="flex flex-wrap justify-center items-center gap-4 mt-4 text-white">
+        <button id="prevPage" class="px-4 py-2 bg-gray-800 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+            Previous
+        </button>
+        <span id="pageInfo" class="text-lg">Page <span id="currentPage">1</span> of <span id="totalPages">1</span></span>
+        <button id="nextPage" class="px-4 py-2 bg-gray-800 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+            Next
+        </button>
+        <div class="flex items-center gap-2">
+            <label for="pageSize" class="text-lg">Players per page:</label>
+            <input type="number" id="pageSize" min="1" max="100" class="w-20 px-2 py-1 bg-gray-800 rounded text-white border border-gray-700" value="25">
+        </div>
+        <button id="toggleUpdates" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">
+            Auto-update: ON
+        </button>
+    </div>
 </div>
 
 <script>
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+let PLAYERS_PER_PAGE = isMobile ? 10 : 18;
+let currentPage = 0;
+let allPlayers = [];
+let autoUpdateEnabled = true;  // Added this line
+let updateInterval;  // Added this line
 
+document.getElementById('pageSize').value = PLAYERS_PER_PAGE;
 if (isMobile) {
     document.querySelector('.overflow-x-auto').classList.add('touch-pan-x');
 }
+
+function sortPlayers(players) {
+    return players.sort((a, b) => {
+        // Handle cases where totalPoints might be undefined
+        if (!a.totalPoints && !b.totalPoints) return 0;
+        if (!a.totalPoints) return 1;  // Move players without points to the end
+        if (!b.totalPoints) return -1;
+        return b.totalPoints - a.totalPoints;  // Sort in descending order
+    });
+}
+
+function highlightWinners(players) {
+    if (!players.length) return;
+    
+    // Find the highest score
+    const highestScore = Math.max(...players
+        .filter(p => p.totalPoints !== undefined)
+        .map(p => p.totalPoints));
+    
+    // Get all players with the highest score
+    const winners = players.filter(p => p.totalPoints === highestScore);
+    
+    // Highlight all winners
+    winners.forEach(winner => {
+        const winnerRow = document.querySelector(`tr[data-player="${winner.name}"]`);
+        if (winnerRow) {
+            winnerRow.classList.add('bg-green-900');
+            winnerRow.classList.remove('hover:bg-gray-900');
+        }
+    });
+}
+
 
 function updateColumnWidths() {
     const headerRow = document.querySelector('thead tr');
@@ -114,99 +184,170 @@ function updateColumnWidths() {
     });
 }
 
+function renderPage() {
+    const tbody = document.getElementById('scoreboardBody');
+    const start = currentPage * PLAYERS_PER_PAGE;
+    const end = Math.min(start + PLAYERS_PER_PAGE, allPlayers.length);
+    const pagePlayers = allPlayers.slice(start, end);
+    
+    tbody.innerHTML = '';
+    
+    pagePlayers.forEach(player => {
+        const row = document.createElement('tr');
+        row.className = 'border-b border-gray-700 hover:bg-gray-900';
+        row.setAttribute('data-player', player.name);
+
+        const cells = [
+            { content: player.name, sticky: true },
+            ...player.strokes.slice(0, player.strokes.length/2).map((stroke, i) => ({
+                content: {
+                    stroke: stroke || '-',
+                    points: player.points ? player.points[i] : ''
+                }
+            })),
+            { content: player.out || '-' },
+            ...player.strokes.slice(player.strokes.length/2).map((stroke, i) => ({
+                content: {
+                    stroke: stroke || '-',
+                    points: player.points ? player.points[i + player.strokes.length/2] : ''
+                }
+            })),
+            { content: player.in || '-' },
+            { content: player.gross || '-' },
+            { content: player.handicap || '-' },
+            { content: player.net || '-' },
+            { content: player.totalPoints || '-', bold: true }
+        ];
+
+        cells.forEach((cell, i) => {
+            const td = document.createElement('td');
+            td.className = 'text-center border-l border-gray-700 px-2' + 
+                (i === 0 ? ' py-2 sticky left-0 z-10 bg-black' : '');
+            
+            if (typeof cell.content === 'object' && 'stroke' in cell.content) {
+                td.innerHTML = `
+                    <div class="flex flex-col">
+                        <span>${cell.content.stroke}</span>
+                        <span class="text-base ${cell.content.points > 0 ? 'text-green-500' : 
+                            cell.content.points < 0 ? 'text-red-500' : ''}">
+                            ${cell.content.points}
+                        </span>
+                    </div>
+                `;
+            } else {
+                td.textContent = cell.content;
+            }
+            
+            if (cell.bold) {
+                td.classList.add('font-bold');
+            }
+            
+            row.appendChild(td);
+        });
+
+        tbody.appendChild(row);
+    });
+
+    // Update pagination controls
+    const totalPages = Math.ceil(allPlayers.length / PLAYERS_PER_PAGE);
+    // Reset current page if it's now invalid due to page size change
+    if (currentPage >= totalPages) {
+        currentPage = Math.max(0, totalPages - 1);
+    }
+    document.getElementById('currentPage').textContent = currentPage + 1;
+    document.getElementById('totalPages').textContent = totalPages;
+    document.getElementById('prevPage').disabled = currentPage === 0;
+    document.getElementById('nextPage').disabled = currentPage >= totalPages - 1;
+
+    updateColumnWidths();
+}
+
 async function updateScoreboard() {
     try {
         const scoreboardResponse = await fetch('/api/get-scoreboard');
-        const players = await scoreboardResponse.json();
+        allPlayers = await scoreboardResponse.json();
         
-        const tbody = document.querySelector('tbody');
-        tbody.innerHTML = '';
+        // Sort players by total points
+        allPlayers = sortPlayers(allPlayers);
 
-        players.forEach(player => {
-            const row = document.createElement('tr');
-            row.className = 'border-b border-gray-700 hover:bg-gray-900';
-            row.setAttribute('data-player', player.name);
-
-            // Split the strokes and points into front nine and back nine
-            const frontNine = player.strokes.slice(0, players.cups/2);
-            const backNine = player.strokes.slice(players.cups/2);
-            const frontNinePoints = player.points ? player.points.slice(0, players.cups/2) : [];
-            const backNinePoints = player.points ? player.points.slice(players.cups/2) : [];
-
-            const cells = [
-                { content: player.name, sticky: true },
-                ...frontNine.map((stroke, i) => ({
-                    content: {
-                        stroke: stroke || '-',
-                        points: frontNinePoints[i] || ''
-                    }
-                })),
-                { content: player.out || '-' }, // OUT score after front nine
-                ...backNine.map((stroke, i) => ({
-                    content: {
-                        stroke: stroke || '-',
-                        points: backNinePoints[i] || ''
-                    }
-                })),
-                { content: player.in || '-' },
-                { content: player.gross || '-' },
-                { content: player.handicap || '-' },
-                { content: player.net || '-' },
-                { content: player.totalPoints || '-', bold: true }
-            ];
-
-            cells.forEach((cell, i) => {
-                const td = document.createElement('td');
-                td.className = 'text-center border-l border-gray-700 px-2' + (i === 0 ? ' py-2 sticky left-0 z-10 bg-black' : '');
-                
-                if (typeof cell.content === 'object' && 'stroke' in cell.content) {
-                    td.innerHTML = `
-                        <div class="flex flex-col">
-                            <span>${cell.content.stroke}</span>
-                            <span class="text-base ${cell.content.points > 0 ? 'text-green-500' : cell.content.points < 0 ? 'text-red-500' : ''}">
-                                ${cell.content.points}
-                            </span>
-                        </div>
-                    `;
-                } else {
-                    td.textContent = cell.content;
-                }
-                
-                if (cell.bold) {
-                    td.classList.add('font-bold');
-                }
-                
-                row.appendChild(td);
-            });
-
-            tbody.appendChild(row);
-        });
-
-        await new Promise(resolve => setTimeout(resolve, 0)); // Let DOM update
-        updateColumnWidths();
+        renderPage();
         
         const statusResponse = await fetch('/api/tournament-status');
         const { tournamentFinished } = await statusResponse.json();
 
         if (tournamentFinished) {
-            const bestPlayer = players.reduce((best, current) => 
-                (!best || current.totalPoints > best.totalPoints) ? current : best, null);
-            
-            if (bestPlayer) {
-                const winnerRow = document.querySelector(`tr[data-player="${bestPlayer.name}"]`);
-                if (winnerRow) {
-                    winnerRow.classList.add('bg-green-900');
-                    winnerRow.classList.remove('hover:bg-gray-900');
-                }
-            }
+                    highlightWinners(allPlayers);
         }
-
     } catch (error) {
         console.error('Error updating scoreboard:', error);
     }
 }
 
+// Event Listeners
+document.getElementById('prevPage').addEventListener('click', () => {
+    if (currentPage > 0) {
+        currentPage--;
+        renderPage();
+    }
+});
+
+document.getElementById('nextPage').addEventListener('click', () => {
+    const totalPages = Math.ceil(allPlayers.length / PLAYERS_PER_PAGE);
+    if (currentPage < totalPages - 1) {
+        currentPage++;
+        renderPage();
+    }
+});
+
+function toggleAutoUpdate() {
+    autoUpdateEnabled = !autoUpdateEnabled;
+    const button = document.getElementById('toggleUpdates');
+    
+    if (autoUpdateEnabled) {
+        updateInterval = setInterval(updateScoreboard, 5000);
+        button.textContent = 'Auto-update: ON';
+        button.classList.remove('bg-gray-600', 'hover:bg-gray-700');
+        button.classList.add('bg-blue-600', 'hover:bg-blue-700');
+    } else {
+        clearInterval(updateInterval);
+        button.textContent = 'Auto-update: OFF';
+        button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+        button.classList.add('bg-gray-600', 'hover:bg-gray-700');
+    }
+}
+document.getElementById('toggleUpdates').addEventListener('click', toggleAutoUpdate);
 window.addEventListener('resize', updateColumnWidths);
+
+document.getElementById('pageSize').addEventListener('change', function(e) {
+    const newSize = parseInt(e.target.value);
+    if (newSize > 0 && newSize <= 100) {
+        PLAYERS_PER_PAGE = newSize;
+        currentPage = 0; // Reset to first page when changing page size
+        renderPage();
+    } else {
+        // Reset to previous value if invalid
+        e.target.value = PLAYERS_PER_PAGE;
+    }
+});
+
+function toggleAutoUpdate() {
+    autoUpdateEnabled = !autoUpdateEnabled;
+    const button = document.getElementById('toggleUpdates');
+    
+    if (autoUpdateEnabled) {
+        updateInterval = setInterval(updateScoreboard, 5000);
+        button.textContent = 'Auto-update: ON';
+        button.classList.remove('bg-gray-600', 'hover:bg-gray-700');
+        button.classList.add('bg-blue-600', 'hover:bg-blue-700');
+    } else {
+        clearInterval(updateInterval);
+        button.textContent = 'Auto-update: OFF';
+        button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+        button.classList.add('bg-gray-600', 'hover:bg-gray-700');
+    }
+}
+
+
 
 updateScoreboard();
 setInterval(updateScoreboard, 5000);

@@ -3,7 +3,7 @@
     <div class="mb-6 text-white">
     <div class="bg-gray-800 p-4 rounded">
         <h2 class="text-xl font-bold mb-2">Tournament Status</h2>
-        <p>Status: <span class="font-semibold"><%= tournament.status ? tournament.status.charAt(0).toUpperCase() + tournament.status.slice(1) : 'Not Started' %></span></p>
+        <p>Status: <span id="status" class="font-semibold"><%= tournament.status ? tournament.status.charAt(0).toUpperCase() + tournament.status.slice(1) : 'Not Started' %></span></p>
         <p>Start Time: <span class="font-semibold"><%= tournament.startDate ? new Date(tournament.startDate).toLocaleString() : 'Not Set' %></span></p>
     </div>
 </div>
@@ -130,7 +130,7 @@
                         <%- (paused) ? 'Restart' : (idle) ? 'Start' : 'Pause' %> Tournament
                     </button>
                 </form>
-                <form action="/api/admin/stop-tournament" onsubmit="return confirm('Are you sure you want to end the tournament? This will calculate the final score of the players and they would not be able to set scores.')" method="post">
+                <form action="/api/admin/stop-tournament" onsubmit="return confirm('Are you sure you want to end the tournament? This will calculate the winners, final score of the players and they would not be able to set scores.')" method="post">
                     <button class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
                     End Tournament
                     </button>
@@ -153,15 +153,18 @@
         <button id="saveScoresButton" onclick="saveScores()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 ml-2 hidden">
             Save Changes
         </button>
+        <button id="updatePointsButton" onclick="updateScores()" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 ml-2">
+            Update Scores
+        </button>
     </div>
-    <div class="overflow-x-auto">
-        <div class="inline-block min-w-full align-middle">
+<div class="overflow-x-auto">
+    <div class="inline-block min-w-full align-middle">
         <table class="w-full text-white">
             <thead>
                 <tr>
                     <th class="p-3 text-left">Cup</th>
-                    <% players.forEach(function(player) { %>
-                        <th class="p-3 text-center"><%= player.name %></th>
+                    <% (players || []).forEach(function(player) { %>
+                        <th class="p-3 text-center"><%= player?.name || '-' %></th>
                     <% }); %>
                     <th class="p-3 text-center">Lock/Unlock</th>
                 </tr>
@@ -170,15 +173,15 @@
                 <% for(let i = 0; i < cups; i++) { %>
                     <tr class="hover:bg-gray-800">
                         <td class="p-3">Cup <%= i + 1 %></td>
-                        <% players.forEach(function(player, playerIndex) { %>
+                        <% (players || []).forEach(function(player, playerIndex) { %>
                             <td class="p-3 text-center">
-                                <span class="score-display"><%= player.strokes[i] || '-' %></span>
-                                <input type="number" 
+                                <span class="score-display"><%= player?.strokes?.[i] || '-' %></span>
+                                <input type="number"
                                        class="score-input hidden w-full bg-gray-700 text-white p-1 rounded"
                                        data-player-index="<%= playerIndex %>"
                                        data-cup-index="<%= i %>"
-                                       value="<%= player.strokes[i] || '' %>"
-                                       data-original-value="<%= player.strokes[i] || '' %>"
+                                       value="<%= player?.strokes?.[i] || '' %>"
+                                       data-original-value="<%= player?.strokes?.[i] || '' %>"
                                        >
                             </td>
                         <% }); %>
@@ -195,6 +198,7 @@
     </div>
 </div>
 </div>
+</div>
  <!-- Player Controls Section -->
     <div class="mb-4">
         <button onclick="toggleForm('playerControls')" class="w-full bg-gray-800 p-3 text-left text-white hover:bg-gray-700">
@@ -206,6 +210,9 @@
             </button>
             <button onclick="loadPlayerList()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mb-4 ml-2">
                 Import Players
+            </button>
+            <button onclick="deletePlayers()" class="<%= (tournament.status == 'finished' || tournament.status == 'idle' || tournament.status == undefined) ? '' : 'hidden'%> bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 mb-4">
+                Delete ALL players
             </button>
             <div id="playerImportList" class="hidden mb-4 bg-gray-800 p-4 rounded">
                 <select id="playerImportSelect" class="w-full bg-gray-700 text-white p-2 rounded mb-4">
@@ -284,19 +291,19 @@
                         function formatId(id) {
                             return showFullIds ? id : `${id.slice(0, 3)}...${id.slice(-5)}`;
                         }%>
-                        <% players.forEach(function(player) { %>
+                        <% (players || []).forEach(function(player) { %>
                             <tr class="border-t border-gray-700">
                                 <td class="p-3 player-id" data-full-id="<%= player.id %>">
-                                    <%= formatId(player.id) %>
+                                    <%= formatId(player?.id || '') %>
                                 </td>
-                                <td class="p-3"><%= player.name %></td>
-                                <td class="p-3"><%= player.email %></td>
-                                <td class="p-3"><%= player.handicap || 'N/A' %></td>
+                                <td class="p-3"><%= player?.name ||''%></td>
+                                <td class="p-3"><%= player?.email ||''%></td>
+                                <td class="p-3"><%= player?.handicap || 'N/A' %></td>
                                 <td class="p-3 text-center">
-                                    <button onclick="editPlayer('<%= player.id %>')" class="bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700 mr-2">
+                                    <button onclick="editPlayer('<%= player?.id %>')" class="bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700 mr-2">
                                         Edit
                                     </button>
-                                    <button onclick="deletePlayer('<%= player.id %>')" class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">
+                                    <button onclick="deletePlayer('<%= player?.id %>')" class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">
                                         Delete
                                     </button>
                                 </td>
@@ -458,11 +465,13 @@ function toggleScoreEditing() {
     const inputs = document.querySelectorAll('.score-input');
     const editButton = document.getElementById('editScoresButton');
     const saveButton = document.getElementById('saveScoresButton');
-    
+    const updatePointsButton = document.getElementById('updatePointsButton');
+
     displays.forEach(display => display.classList.toggle('hidden'));
     inputs.forEach(input => input.classList.toggle('hidden'));
     editButton.classList.toggle('hidden');
     saveButton.classList.toggle('hidden');
+    updatePointsButton.classList.toggle('hidden');
 }
 
 function saveScores() {
@@ -524,154 +533,168 @@ function saveScores() {
     });
 }
 
+function updateScores()
+{
+    fetch('/api/admin/calc-score', {
+
+        credentials: 'include',
+
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href= '/api/admin?Psuccess=true';
+        } else {
+            alert('Failed to update points');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to update points table');
+    });
+}
 
 function updateScoreboard() {
-    fetch('/api/admin/get-data', {        
-            credentials: 'include' // This includes cookies in the request
-        })
-        .then(response => response.json())
-        .then(data => {
-             hasUserReadAdmin = data.players.map(player => !player.isEditedByAdmin);
-
-           
-                const form = document.querySelector('#tournamentControls form');
-                const button = form.querySelector('button');
-                
-                if (data.idle) {
-                    form.action = '/api/admin/start-tournament';
-                    button.innerHTML = 'Start Tournament';
-                    button.className = 'bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700';
-
-
-                    // Update players table when idle
-                    const playersTableBody = document.querySelector('#playerControls table tbody');
-                    if (playersTableBody) {
-                        playersTableBody.innerHTML = '';
-                        data.players.forEach(player => {
-                            playersTableBody.innerHTML += `
-                                <tr class="border-t border-gray-700">
-                                    <td class="p-3 player-id" data-full-id="${player.id}">
-                                        ${formatId(player.id)}
-                                    </td>
-                                    <td class="p-3">${player.name}</td>
-                                    <td class="p-3">${player.email}</td>
-                                    <td class="p-3">${player.handicap || 'N/A'}</td>
-                                    <td class="p-3 text-center">
-                                        <button onclick="editPlayer('${player.id}')" class="bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700 mr-2">
-                                            Edit
-                                        </button>
-                                        <button onclick="deletePlayer('${player.id}')" class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">
-                                            Delete
-                                        </button>
-                                    </td>
-                                </tr>
-                            `;
-                        });
-                    }
-
-                } else if(data.paused){
-                    form.action = '/api/admin/restart-tournament';
-                    button.innerHTML = 'Resume Tournament';
-                    button.className = 'bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700';
+    fetch('/api/admin/get-data', {
+        credentials: 'include'
+    })
+    .then(response => response.json())
+    .then(data => {
+            const statusSpan = document.getElementById("status");
+            if (statusSpan) {
+                let newStatus = 'Not Started';
+                if (data.not_set || data.idle) {
+                    newStatus = 'Not Started';
+                } else if (data.isOn) {
+                    newStatus = data.paused ? 'Paused' : 'Ongoing';
+                } else if (data.finished) {
+                    newStatus = 'Finished';
                 }
-                else
-                {
-                    form.action = '/api/admin/pause-tournament';
-                    button.innerHTML = 'Pause Tournament';
-                    button.className = 'bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700';
-                }
-            
-
-          if(!data.paused) {
-                const players = data.players;
-                const cups = data.cups;
-                const scoreboardControls = document.getElementById('scoreboardControls');
-
-                if (scoreboardControls) {
-                    const existingTable = scoreboardControls.querySelector('table');
-
-                        
-                    if (existingTable) {
-
-                        const headerRow = existingTable.querySelector('thead tr');
-                        // Keep the first column (Cup)
-                        headerRow.innerHTML = '<th class="p-3 text-left">Cup</th>';
-                        // Add player columns
-                        data.players.forEach(player => {
-                            headerRow.innerHTML += `<th class="p-3 text-center">${player.name}</th>`;
-                        });
-                        // Add lock/unlock column
-                        headerRow.innerHTML += '<th class="p-3 text-center">Lock/Unlock</th>';
-
-                        const tbody = existingTable.querySelector('tbody');
-                        const rows = tbody.querySelectorAll('tr');
-                        console.log(rows.length)
-                        // If rows don't exist, create them. Otherwise just update scores
-                        if (rows.length === 0) {
-                            // Create new rows
-                            for (let i = 0; i < cups; i++) {
-                            const row = document.createElement("tr");
-                            row.className = "hover:bg-gray-800";
-
-                            const cupCell = document.createElement("td");
-                            cupCell.className = "p-3";
-                            cupCell.textContent = `Cup ${i + 1}`;
-                            row.appendChild(cupCell);
-
-                            players.forEach((player, playerIndex) => {
-                                const strokeCell = document.createElement("td");
-                                strokeCell.className = "p-3 text-center";
-                                
-                                const display = document.createElement("span");
-                                display.className = "score-display";
-                                display.textContent = player.strokes[i] !== undefined ? player.strokes[i] : "-";
-                                
-                                const input = document.createElement("input");
-                                input.type = "number";
-                                input.className = "score-input hidden w-full bg-gray-700 text-white p-1 rounded";
-                                input.dataset.playerIndex = playerIndex;
-                                input.dataset.cupIndex = i;
-                                input.value = player.strokes[i] || '';
-                                input.setAttribute('data-original-value', player.strokes[i] || '');
-                                strokeCell.appendChild(display);
-                                strokeCell.appendChild(input);
-                                row.appendChild(strokeCell);
-                            });
-
-                            const lockCell = document.createElement("td");
-                            lockCell.className = "p-3 text-center";
-                            console.log(data.cupLocks[i])
-                            lockCell.innerHTML = `
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input name="cupLocks[]" type="checkbox" class="sr-only peer"  ${data.cupLocks[i] ? 'checked' : ''} onchange="toggleCupLock(${i})"  >
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
-                                </label>
-                            `;
-                            row.appendChild(lockCell);
-
-                            tbody.appendChild(row);
-                        }
-                           } else {
-                // Just update the scores, don't touch the lock checkboxes
-                rows.forEach((row, i) => {
-                    const scoreCells = row.querySelectorAll('td:not(:first-child):not(:last-child)');
-                    scoreCells.forEach((cell, playerIndex) => {
-                        const display = cell.querySelector('.score-display');
-                        const input = cell.querySelector('.score-input');
-                        if (display && input) {
-                            const score = players[playerIndex].strokes[i];
-                            display.textContent = score !== undefined ? score : "-";
-                            input.value = score || '';
-                            input.setAttribute('data-original-value', score || '');
-                        }
-                    });
-                });
+                statusSpan.textContent = newStatus;
             }
+
+        if (!data.players || data.players.length === 0) return;
+        
+        hasUserReadAdmin = data.players.map(player => !player.isEditedByAdmin);
+        
+        // Update tournament controls
+        const form = document.querySelector('#tournamentControls form');
+        const button = form.querySelector('button');
+        
+        if (data.idle || data.not_set || data.status === "") {
+            form.action = '/api/admin/start-tournament';
+            button.innerHTML = 'Start Tournament';
+            button.className = 'bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700';
+
+            // Update players table
+            updatePlayersTable(data.players);
+        } else if (data.paused) {
+            form.action = '/api/admin/restart-tournament';
+            button.innerHTML = 'Resume Tournament';
+            button.className = 'bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700';
+        } else {
+            form.action = '/api/admin/pause-tournament';
+            button.innerHTML = 'Pause Tournament';
+            button.className = 'bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700';
         }
+
+        if (!data.paused) {
+            updateScoreboardTable(data);
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+
+function updatePlayersTable(players) {
+    const playersTableBody = document.querySelector('#playerControls table tbody');
+    if (!playersTableBody || !players || players.length === 0) return;
+
+    playersTableBody.innerHTML = players.map(player => `
+        <tr class="border-t border-gray-700">
+            <td class="p-3 player-id" data-full-id="${player.id}">
+                ${formatId(player.id)}
+            </td>
+            <td class="p-3">${player.name}</td>
+            <td class="p-3">${player.email}</td>
+            <td class="p-3">${player.handicap || 'N/A'}</td>
+            <td class="p-3 text-center">
+                <button onclick="editPlayer('${player.id}')" class="bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700 mr-2">
+                    Edit
+                </button>
+                <button onclick="deletePlayer('${player.id}')" class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">
+                    Delete
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+function updateScoreboardRow(row, cupIndex, data) {
+    const scoreCells = row.querySelectorAll('td:not(:first-child):not(:last-child)');
+    scoreCells.forEach((cell, playerIndex) => {
+        if (!data.players[playerIndex]) return;
+        
+        const display = cell.querySelector('.score-display');
+        const input = cell.querySelector('.score-input');
+        if (display && input) {
+            const score = data.players[playerIndex].strokes[cupIndex];
+            display.textContent = score !== undefined ? score : "-";
+            input.value = score || '';
+            input.setAttribute('data-original-value', score || '');
+        }
+    });
+}
+function updateScoreboardTable(data) {
+    if (!data.players || !data.cups) return;
+    
+    const scoreboardControls = document.getElementById('scoreboardControls');
+    const existingTable = scoreboardControls?.querySelector('table');
+    if (!existingTable) return;
+
+    // Update header
+    const headerRow = existingTable.querySelector('thead tr');
+    headerRow.innerHTML = '<th class="p-3 text-left">Cup</th>' +
+        data.players.map(player => `<th class="p-3 text-center">${player.name}</th>`).join('') +
+        '<th class="p-3 text-center">Lock/Unlock</th>';
+
+    // Update or create rows
+    const tbody = existingTable.querySelector('tbody');
+    const rows = tbody.querySelectorAll('tr');
+    
+    if (rows.length === 0) {
+        tbody.innerHTML = Array.from({length: data.cups}, (_, i) => createScoreboardRow(i, data)).join('');
+    } else {
+        rows.forEach((row, i) => updateScoreboardRow(row, i, data));
     }
 }
-        })
-        .catch(error => console.error('Error:', error));
+function createScoreboardRow(cupIndex, data) {
+    return `
+        <tr class="hover:bg-gray-800">
+            <td class="p-3">Cup ${cupIndex + 1}</td>
+            ${data.players.map((player, playerIndex) => createScoreCell(player, playerIndex, cupIndex)).join('')}
+            <td class="p-3 text-center">
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input name="cupLocks[]" type="checkbox" class="sr-only peer" ${data.cupLocks[cupIndex] ? 'checked' : ''} onchange="toggleCupLock(${cupIndex})">
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                </label>
+            </td>
+        </tr>
+    `;
+}
+
+function createScoreCell(player, playerIndex, cupIndex) {
+    const score = player.strokes[cupIndex];
+    return `
+        <td class="p-3 text-center">
+            <span class="score-display">${score !== undefined ? score : "-"}</span>
+            <input type="number"
+                   class="score-input hidden w-full bg-gray-700 text-white p-1 rounded"
+                   data-player-index="${playerIndex}"
+                   data-cup-index="${cupIndex}"
+                   value="${score || ''}"
+                   data-original-value="${score || ''}">
+        </td>
+    `;
 }
 
  function toggleAddPlayerForm() {
@@ -680,7 +703,7 @@ function updateScoreboard() {
     }
 
     function deletePlayer(playerId) {
-        if (confirm('Are you sure you want to remove this player?')) {
+        if (confirm('Are you sure you want to remove this player? \n NOTE: IF THE TOURNAMENT HAS BEEN FINISHED AND IF THIS PLAYER HAS REGISTERED AFTER THE MATCH / TOURNAMENT HAS ENDED, THEY WOULD NEED TO REGISTER AGAIN!')) {
             fetch(`/api/admin/delete-player/${playerId}`, {
                 method: 'DELETE',
                 credentials: 'include'
@@ -811,5 +834,35 @@ function importPlayers() {
     });
 }
 
+function deletePlayers()
+{
+    const choice = confirm("Are you sure you want to delete all the current players? You can import players from older matches as well from the import button. \n NOTE: IF THE TOURNAMENT HAS BEEN FINISHED AND IF THERE ARE PLAYERS WHO HAVE REGISTERED DURING THE 'FINISHED' PHASE THEY WOULD NEED TO REGISTER AGAIN!'")
+    if(choice)
+    {
+        fetch('/api/admin/delete-all-players', {
+            credentials: 'include',
+            method: 'GET'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success ==true)
+        {
+            window.location.href= '/api/admin?Pdeleted=true';
+        }
+        else {
+                    alert('Failed to delete players, server error or your session has expired');
+            }
+        })
+        .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to delete players');
+            });
+    }
+    else
+    {
+
+    }
+
+}
 </script>
 <%- include("partials/footer.ejs") %>

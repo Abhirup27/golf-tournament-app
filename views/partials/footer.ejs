@@ -1,4 +1,5 @@
 </main>
+<% if (locals.path !== '/api/view-score') { %>
 <footer class="<%= locals.path === '/api/view-score' ? 'fixed bottom-0 w-full bg-background' : 'bg-background text-text py-8' %>">
     <div class="<%= locals.path === '/api/view-score' ? 'px-4 py-2' : 'container mx-auto px-4' %>">
         <div class="flex flex-col items-center space-y-4">
@@ -19,5 +20,6 @@
         </div>
     </div>
 </footer>
+ <% } %>
 </body>
 </html>

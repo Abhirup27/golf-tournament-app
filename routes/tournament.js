@@ -27,20 +27,29 @@ const GolfScore = {
     CONDOR: -4
 };
 
+//    case relativeToPar <= -3: return 8;  // Albatross or better
+//         case relativeToPar === -2: return 5; // Eagle
+//         case relativeToPar === -1: return 2; // Birdie
+//         case relativeToPar === 0:  return 0; // Par
+//         case relativeToPar === 1:  return -1; // Bogey
+//         default: return -3;  // Double bogey or worse
+
 const calculateStablefordPoints = (netStrokes, par) => {
     const relativeToPar = netStrokes - par;
     switch (true) {
-        case relativeToPar <= -3: return 8;  // Albatross or better
-        case relativeToPar === -2: return 5; // Eagle
-        case relativeToPar === -1: return 2; // Birdie
-        case relativeToPar === 0:  return 0; // Par
-        case relativeToPar === 1:  return -1; // Bogey
-        default: return -3;  // Double bogey or worse
+        case relativeToPar <= -2: return 4;  // Albatross or better 
+        case relativeToPar === -1: return 3; // Eagle
+        case relativeToPar === 0: return 2; // Birdie
+        case relativeToPar === 1:  return 1; // Par
+        case relativeToPar >= 2:  return 0; // Bogey
+        default: return -3;  // Double bogey or worse // In this version, this never happens because the conditions above check all
     }
 };
 
 const calculateCourseHandicap = (playerHandicap, slopeRating, courseRating, par) => {
+    //console.log(playerHandicap, slopeRating, courseRating, par)
     return Math.round(playerHandicap * (slopeRating / 113) + (courseRating - par));
+    
 };
 
 
@@ -239,47 +248,53 @@ const calcTotalScore = async () => {
         let inPoints = 0;
         
         const courseHandicap = calculateCourseHandicap(
-            player.handicap, 
-            tournament.slopeRating
+            player.handicap,
+            tournament.slopeRating,
+            tournament.courseRating,
+            tournament.par
         );
-        console.log("The course handicap: " + courseHandicap)
-        for (let i = 0; i < player.strokes.length; i++) {
-            const strokes = player.strokes[i];
-            if (typeof strokes === 'number' && strokes !== 0) {
-                console.log('this ran' + strokes)
-                // Calculate gross strokes
-                totalGrossStrokes += strokes;
-                
-                // Calculate handicap strokes for this hole
-                const handicapStrokes = getHandicapStrokesForHole(
-                    courseHandicap,
-                    tournament.strokeIndex[i],
-                    tournament.cups
-                );
-                console.log('handicap' + handicapStrokes)
-                // Calculate net strokes
-                const netStrokes = strokes - handicapStrokes;
-                totalNetStrokes += netStrokes;
+       // console.log(player.name)
+       // console.log("The course handicap: " + courseHandicap)
+        if (player.id != undefined)
+         {
+            for (let i = 0; i < player.strokes.length; i++) {
+                const strokes = player.strokes[i];
+                if (typeof strokes === 'number' && strokes !== 0) {
+       
+                    // Calculate gross strokes
+                    totalGrossStrokes += strokes;
+                    
+                    // Calculate handicap strokes for this hole
+                    const handicapStrokes = getHandicapStrokesForHole(
+                        courseHandicap,
+                        tournament.strokeIndex[i],
+                        tournament.cups
+                    );
+                 //   console.log('handicap' + handicapStrokes)
+                    // Calculate net strokes
+                    const netStrokes = strokes - handicapStrokes;
+                    totalNetStrokes += netStrokes;
 
-                // Calculate Stableford points
-                const points = calculateStablefordPoints(netStrokes, tournament.pars[i]);
-                
-                // Add to total points and front/back nine
-                totalPoints += points;
-                if (i < (tournament.cups/2)) {
-                    outPoints += points;
-                } else {
-                    inPoints += points;
+                    // Calculate Stableford points
+                    const points = calculateStablefordPoints(netStrokes, tournament.pars[i]);
+                    
+                    // Add to total points and front/back nine
+                    totalPoints += points;
+                    if (i < (tournament.cups / 2)) {
+                        outPoints += points;
+                    } else {
+                        inPoints += points;
+                    }
                 }
             }
-        }
-        
-        // Update player's totals
-        player.gross = totalGrossStrokes;
-        player.net = totalNetStrokes;
-        player.totalPoints = totalPoints;
-        player.out = outPoints;
-        player.in = inPoints;
+            
+            // Update player's totals
+            player.gross = totalGrossStrokes;
+            player.net = totalNetStrokes;
+            player.totalPoints = totalPoints;
+            player.out = outPoints;
+            player.in = inPoints;
+    }
     });
     
     await writeJSON(DB_PATH.players, players);
@@ -292,7 +307,7 @@ router.get('/', async (req, res) => {
     try {
        
         const tour_status = await readJSON(DB_PATH.tournament);
-        console.log(tour_status.status)
+       // console.log(tour_status.status)
         
         if (tour_status.status != "ongoing" && tour_status.status != "paused") //need to change this to let old players log back in and see past matches, maybe use player id cookie
         {
@@ -356,14 +371,14 @@ router.post('/login', async (req, res) => {
             //console.log(player);
             if (isOngoing())
             {
-                console.log(await getCups())
+               // console.log(await getCups())
                 res.cookie('id', player.id, {
                         maxAge: 36000000, //~ 10 hour
                         httpOnly: true,
                         secure: false,
                         sameSite: 'strict'
                         });
-                res.render("set_points", {holes:  await getCups(), scores: player.strokes, pars: await getPars(),locks:tournament.cupLocks})
+                res.render("set_points", {path:'/api/set-strokes', holes:  await getCups(), scores: player.strokes, pars: await getPars(),locks:tournament.cupLocks})
             }
 
         }
@@ -385,7 +400,7 @@ router.get('/set-strokes', async (req, res) => {
     const player = players.find(p => p.id === req.cookies.id);
     if (player && tournament.status != undefined && await isOngoing()) {
 
-        res.render("set_points", {message:"Updated successfully!", holes: await getCups(), scores: player.strokes, pars: await getPars(), locks: tournament.cupLocks })
+        res.render("set_points", {path:'/api/set-strokes', message:"Updated successfully!", holes: await getCups(), scores: player.strokes, pars: await getPars(), locks: tournament.cupLocks })
     }
     else
     {
@@ -396,24 +411,46 @@ router.get('/set-strokes', async (req, res) => {
 router.post('/register', async (req, res) => {
     try {
         const tournament = await readJSON(DB_PATH.tournament);
-        if (await isOngoing())
-        {
-            res.render('index', { message: "You cannot register when the tournament is already going on." ,tournamentStatus: tournament.status, startDate: tournament.startDate, endDate: tournament.endDate, path:'/'})
+        if (await isOngoing()) {
+            res.render('index', { 
+                message: "You cannot register when the tournament is already going on.",
+                tournamentStatus: tournament.status, 
+                startDate: tournament.startDate, 
+                endDate: tournament.endDate, 
+                path:'/'
+            });
             return;
         }
+
         const players = await readJSON(DB_PATH.players);
         const player = players.find(p => p.email === req.body.email);
-        if (player)
-        {
+        if (player) {
             const curr_course_settings = await readJSON(DB_PATH.course);
-            res.render("register", { mHandicap: tournament.mHandicap || 54,courses: [{id:1, name: 'current golf course', rating: curr_course_settings.courseRating, slope: curr_course_settings.slopeRating}, { id: 2, name: 'Course 2', rating: 72.1, slope: 128 }], message: "Failed! User already exists. Same email cannot be used for different users." })
+            res.render("register", { 
+                mHandicap: tournament.mHandicap || 54,
+                courses: [
+                    {id:1, name: 'current golf course', rating: curr_course_settings.courseRating, slope: curr_course_settings.slopeRating}, 
+                    { id: 2, name: 'Course 2', rating: 72.1, slope: 128 }
+                ], 
+                message: "Failed! User already exists. Same email cannot be used for different users." 
+            });
             return;
         }
+
+        let courseData = null;
+        try {
+            courseData = req.body.courseData ? JSON.parse(req.body.courseData) : null;
+        } catch (e) {
+            courseData = null;
+        }
+
         const newPlayer = {
             id: uuidv4(),
             name: req.body.name,
             email: req.body.email, //primary
+            phone: req.body.phone || null,
             handicap: parseFloat(req.body.handicap),
+            handicapCalculation: courseData,
             strokes: [],
             points: [],
             gross: null,
@@ -422,12 +459,18 @@ router.post('/register', async (req, res) => {
             in: null,
             totalPoints: null,
             isAdmin: false,
-            isEditedByAdmin:false
+            isEditedByAdmin: false
         };
-        
+       
         players.push(newPlayer);
         await writeJSON(DB_PATH.players, players);
-        res.render("index", {message:"Registration successful! Login once the tournament has started!",tournamentStatus: tournament.status, startDate: tournament.startDate, endDate: tournament.endDate, path:'/'});
+        res.render("index", {
+            message: "Registration successful! Login once the tournament has started!",
+            tournamentStatus: tournament.status, 
+            startDate: tournament.startDate, 
+            endDate: tournament.endDate, 
+            path:'/'
+        });
     } catch (error) {
         res.status(400).json({ error: error.message });
     }
@@ -523,17 +566,20 @@ router.post('/admin/update-scores', async (req, res) =>
 {
     if (req.cookies.adminid == adminid)    
     {
+        //console.log(req.body.playerScores)
         const players = await readJSON(DB_PATH.players);
         
-        players.forEach((player,index) => {
-            player.strokes = req.body.playerScores[index].scores;
-            player.isEditedByAdmin = req.body.playerScores[index].isEditedByAdmin;
+        players.forEach((player, index) => {
+            if (player.id != undefined) {
+                player.strokes = req.body.playerScores[index].scores;
+                player.isEditedByAdmin = req.body.playerScores[index].isEditedByAdmin;
+            }
         });
         await writeJSON(DB_PATH.players, players);
 
         res.json({success: true});
         //res.redirect(303, '/api/admin?updated=true');
-        console.log(req.body);
+       // console.log(req.body);
     }
     else
     {
@@ -639,13 +685,15 @@ router.get('/is-edited-by-admin', async (req, res) => {
     }
 })
 
+
+
 router.get('/admin', async (req, res) => {
     
     if (req.cookies.adminid == adminid) //if it is truly admin
     {
         const players = await readJSON(DB_PATH.players);
         const tournament = await readJSON(DB_PATH.tournament);
-        console.log(tournament.cupLocks)
+        //console.log(tournament.cupLocks)
         const isOn = await isOngoing(); const paused = await isPaused();
         if (req.query.Tsuccess == 'true')
         {
@@ -656,6 +704,10 @@ router.get('/admin', async (req, res) => {
         {
             
             res.render('admin-page', {message:"tournament updated succesfully!", players, tournament, cups:tournament.cups || 0, isOn, paused,idle: await isIdle()});
+        }
+        else if (req.query.Psuccess == 'true')
+        {
+            res.render('admin-page', {message:"scores updated succesfully!", players, tournament, cups:tournament.cups || 0, isOn, paused,idle: await isIdle()});
         }
         else if (req.query.started == 'true')
         {
@@ -716,6 +768,9 @@ router.get('/admin/get-data', async (req, res) =>
         const cups = await getCups();
         const isOn = await isOngoing();
         const paused = await isPaused();
+        const tournament = await readJSON(DB_PATH.tournament);
+        const not_set = (tournament.status == undefined || tournament.status == "not set"|| tournament.status == "") ? true : false;
+        //console.log(not_set)
         const reqPlObj = players.map(player => ({
                         id: player.id,
                         name: player.name,
@@ -727,7 +782,7 @@ router.get('/admin/get-data', async (req, res) =>
                         isEditedByAdmin: player.isEditedByAdmin
         }));
         
-        res.json({players: reqPlObj,cups:cups, isOn, paused,idle: await isIdle() , cupLocks})
+        res.json({players: reqPlObj,cups:cups, isOn, paused,idle: await isIdle(), not_set , cupLocks})
     }
      else
     {
@@ -942,12 +997,30 @@ router.post('/admin/restart-tournament', async (req, res) =>
         res.render('login', {isAdmin:true, message:"Not logged in as admin or session has expired! login!"})
     }
 })
+router.get('/admin/calc-score', async (req, res) =>
+{
+    if (req.cookies.adminid == adminid) {
+        const tournament = await readJSON(DB_PATH.tournament)
+        for (let index = 0; index < tournament.cups; index++) {
+            
+             await calcScore(index);
+        }
+        
+        await calcTotalScore();
+        res.json({success:true})
+    }
+    else {
+        res.render('login', { isAdmin: true, message: "Not logged in as admin or session has expired! login!" })
+    }
+})
 
 router.post('/admin/pause-tournament', async (req, res) =>
 {
     if (req.cookies.adminid == adminid)
     {
         pauseTournament();
+        // await calcScore();
+        // await calcTotalScore();
         res.redirect(303, '/api/admin?paused=true');
     }
     else
@@ -956,42 +1029,59 @@ router.post('/admin/pause-tournament', async (req, res) =>
     }
 })
 router.post('/admin/stop-tournament', async (req, res) => {
-   if (req.cookies.adminid != adminid) {
-       return res.render('login', {isAdmin:true, message:"Not logged in as admin or session has expired! login!"});
-   }
+    if (req.cookies.adminid != adminid) {
+        return res.render('login', {isAdmin: true, message: "Not logged in as admin or session has expired! login!"});
+    }
 
     try {
-       await stopTournament();                                  //Check THIS TOMORROW
-       const players = await readJSON(DB_PATH.players);
-       const tournament = await readJSON(DB_PATH.tournament);
-       const uuid = crypto.randomUUID();
-       const filename = `${tournament.startDate}_${uuid}.json`;
-       
-       const tournamentData = {
-           ...tournament,
-           players: players,
-           endDate: new Date().toISOString()
-       };
+        await stopTournament();
+         await calcTotalScore();
+        const players = await readJSON(DB_PATH.players);
+        const tournament = await readJSON(DB_PATH.tournament);
+        
+        // Format the date portion of the filename
+        const dateStr = new Date().toISOString()
+            .replace(/[:.]/g, '-')  // Replace colons and periods with hyphens
+            .slice(0, 19);  // Take only the date and time portion, removing milliseconds
+        
+        // Generate UUID and construct filename with .json extension
+        const uuid = crypto.randomUUID();
+        const filename = `tournament_${dateStr}_${uuid}.json`;
+        
+        // Prepare tournament data with end date
+        const tournamentData = {
+            ...tournament,
+            players: players,
+            endDate: new Date().toISOString()
+        };
 
-       const pastMatchesDir = path.join(__dirname, '../data/past_matches');
-       if (!fs.existsSync(pastMatchesDir)) {
-           fs.mkdirSync(pastMatchesDir, { recursive: true });
-       }
-
-       await fs.promises.writeFile(
-           path.join(pastMatchesDir, filename),
-           JSON.stringify(tournamentData, null, 2)
-       );
-
        
-       await calcTotalScore();
-       
-       res.redirect(303, '/api/admin?stopped=true');
-   } catch (error) {
-       console.error('Error saving tournament:', error);
-       res.status(500).send('Error stopping tournament');
-   }
+        
+        // Ensure past matches directory exists
+        const pastMatchesDir = path.join(__dirname, '../data/past_matches');
+        try {
+            await fs.access(pastMatchesDir);
+        } catch {
+            await fs.mkdir(pastMatchesDir, { recursive: true });
+        }
+        
+        // Write the file with formatted JSON
+        const filePath = path.join(pastMatchesDir, filename);
+        await fs.writeFile(
+            filePath,
+            JSON.stringify(tournamentData, null, 2)
+        );
+        
+        // Log successful save
+        console.log(`Tournament saved to: ${filename}`);
+        
+        res.redirect(303, '/api/admin?stopped=true');
+    } catch (error) {
+        console.error('Error saving tournament:', error);
+        res.status(500).send('Error stopping tournament');
+    }
 });
+
 
 router.post('/admin/toggle-cup-lock', async (req, res) =>
 {
@@ -1042,7 +1132,7 @@ router.post('/admin/add-player', async (req, res) => {
     {
 
         const tournament = await readJSON(DB_PATH.tournament);
-        console.log(tournament.cupLocks)
+        //console.log(tournament.cupLocks)
         const isOn = await isOngoing(); const paused = await isPaused();
         const players = await readJSON(DB_PATH.players);
          const player = players.find(p => p.email === req.body.email);
@@ -1092,7 +1182,7 @@ router.post('/admin/load-tournament', async (req, res) => {
     try {
         const { filename } = req.body;
         const filePath = path.join(process.cwd(), 'data', 'past_matches', filename);
-        console.log(filePath)
+        //console.log(filePath)
         const tournamentData = JSON.parse(await fs.readFile(filePath, 'utf8'));
         
         // Update tournament settings
@@ -1157,5 +1247,26 @@ router.post('/admin/import-players', async (req, res) => {
         res.status(500).json({ error: 'Failed to import players' });
     }
 });
+
+router.get('/admin/delete-all-players', async (req, res) =>
+{
+    try {
+        if (req.cookies.adminid == adminid)
+        {
+            const players = [];
+
+            await writeJSON(DB_PATH.players, players);
+            res.json({success:true})
+        }
+        else
+        {
+            res.json({success:false})
+        }
+
+    } catch (error)
+    {
+        res.json({error:error})
+    }
+})
 
 module.exports = router;

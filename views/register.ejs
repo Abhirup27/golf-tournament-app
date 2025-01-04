@@ -2,7 +2,7 @@
 <div class="max-w-md mx-auto">
     <h2 class="text-2xl font-semibold mb-4">Player Registration</h2>
     
-    <form action="/api/register" method="post" class="space-y-4">
+    <form id="registrationForm" action="/api/register" method="post" class="space-y-4">
         <div class="space-y-2">
             <div class="flex items-center">
                 <i class="ri-mail-line mr-2"></i>
@@ -13,6 +13,11 @@
                 <i class="ri-user-smile-line mr-2"></i>
                 <input type="text" class="input w-full hover:border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-2 focus:outline-none"
                     name="name" placeholder="Full Name" required />
+            </div>
+            <div class="flex items-center">
+                <i class="ri-phone-line mr-2"></i>
+                <input type="tel" class="input w-full hover:border-red-500 focus:border-red-500 focus:ring-red-500 focus:ring-2 focus:outline-none"
+                    name="phone" placeholder="Mobile Number (Optional)" />
             </div>
             <div class="flex items-center relative">
                 <i class="ri-service-fill mr-2"></i>
@@ -27,46 +32,54 @@
                 </div>
             </div>
             
-            <!-- Handicap Calculator Toggle -->
             <div class="text-sm text-red-500 cursor-pointer hover:text-red-200" onclick="toggleCalculator()">
                 Calculate your handicap
             </div>
 
-            <!-- Handicap Calculator Section -->
             <div id="handicapCalculator" class="hidden space-y-2 p-4 bg-black rounded-lg">
                 <h3 class="font-semibold mb-2">Handicap Calculator</h3>
                 
-                <!-- Course Selection if available from server -->
-                <% if(locals.courses) { %>
-                <select id="courseSelect" class="input w-full" onchange="updateCourseDetails()">
-                    <option value="">Select a Course</option>
-                    <% courses.forEach(course => { %>
-                    <option value="<%= course.id %>" 
-                            data-rating="<%= course.rating %>" 
-                            data-slope="<%= course.slope %>">
-                        <%= course.name %>
-                    </option>
-                    <% }); %>
-                </select>
-                <% } %>
-
-                <!-- Manual Course Details -->
-                <div class="flex space-x-2">
-                    <input type="number" id="courseRating" step="0.1" placeholder="Course Rating" class="input w-1/2" />
-                    <input type="number" id="slopeRating" placeholder="Slope Rating" class="input w-1/2" />
-                </div>
-
-                <!-- Score Inputs -->
-                <div id="scoreInputs" class="space-y-2">
-                    <div class="flex space-x-2">
-                        <input type="number" placeholder="Score 1" class="input w-full score-input" />
+                <!-- Current Course Data -->
+                <div class="course-data mb-4">
+                    <h4 class="text-sm font-semibold mb-2">Current Course</h4>
+                    <div class="flex space-x-2 mb-2">
+                        <input type="number" step="0.1" value="<%= locals.currentCourse?.rating %>" class="input w-1/2 current-course-rating" readonly />
+                        <input type="number" value="<%= locals.currentCourse?.slope %>" class="input w-1/2 current-course-slope" readonly />
                     </div>
-                    <button type="button" onclick="addScoreInput()" class="text-sm text-red-500 hover:text-red-200">
-                        + Add another score
-                    </button>
+                    <div id="currentCourseScores" class="space-y-2">
+                        <div class="flex space-x-2">
+                            <input type="number" placeholder="Total strokes" class="input w-full score-input" data-course="current" />
+                        </div>
+                        <button type="button" onclick="addScoreInput('currentCourseScores')" class="text-sm text-red-500 hover:text-red-200">
+                            + Add another score
+                        </button>
+                    </div>
                 </div>
 
-                <button type="button" onclick="calculateHandicap()" class="btn w-full text-white hover:bg-red-500">
+                <!-- Additional Courses Container -->
+                <div id="additionalCourses">
+                    <div class="course-entry mb-4">
+                        <h4 class="text-sm font-semibold mb-2">Additional Course</h4>
+                        <div class="flex space-x-2 mb-2">
+                            <input type="number" step="0.1" placeholder="Course Rating" class="input w-1/2 course-rating" />
+                            <input type="number" placeholder="Slope Rating" class="input w-1/2 course-slope" />
+                        </div>
+                        <div class="scores-container space-y-2">
+                            <div class="flex space-x-2">
+                                <input type="number" placeholder="Total Strokes" class="input w-full score-input" />
+                            </div>
+                            <button type="button" onclick="addScoreInput(this.parentElement)" class="text-sm text-red-500 hover:text-red-200">
+                                + Add another score
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" onclick="addNewCourse()" class="text-sm text-red-500 hover:text-red-200">
+                    + Add another course
+                </button>
+
+                <button type="button" onclick="calculateHandicap()" class="btn w-full text-white hover:bg-red-500 mt-4">
                     Calculate
                 </button>
             </div>
@@ -76,6 +89,9 @@
             <i class="ri-user-add-line mr-2"></i>
             Register
         </button>
+
+        <!-- Hidden input for course data -->
+        <input type="hidden" name="courseData" id="courseDataInput" />
     </form>
 </div>
 
@@ -85,56 +101,114 @@ function toggleCalculator() {
     calculator.classList.toggle('hidden');
 }
 
-function addScoreInput() {
-    const scoreInputs = document.getElementById('scoreInputs');
+function addScoreInput(container) {
+    const scoresDiv = (typeof container === 'string') ? 
+        document.getElementById(container) : 
+        container;
     const newInput = document.createElement('div');
     newInput.className = 'flex space-x-2';
     newInput.innerHTML = `
-        <input type="number" placeholder="Score ${scoreInputs.children.length }" 
-               class="input w-full score-input" />
+        <input type="number" placeholder="Total Strokes" class="input w-full score-input" />
     `;
-    scoreInputs.insertBefore(newInput, scoreInputs.lastElementChild);
+    scoresDiv.insertBefore(newInput, scoresDiv.lastElementChild);
 }
 
-function updateCourseDetails() {
-    const courseSelect = document.getElementById('courseSelect');
-    if (courseSelect) {
-        const selected = courseSelect.options[courseSelect.selectedIndex];
-        document.getElementById('courseRating').value = selected.dataset.rating || '';
-        document.getElementById('slopeRating').value = selected.dataset.slope || '';
-    }
+function addNewCourse() {
+    const container = document.getElementById('additionalCourses');
+    const courseDiv = document.createElement('div');
+    courseDiv.className = 'course-entry mb-4';
+    courseDiv.innerHTML = `
+        <h4 class="text-sm font-semibold mb-2">Additional Course</h4>
+        <div class="flex space-x-2 mb-2">
+            <input type="number" step="0.1" placeholder="Course Rating" class="input w-1/2 course-rating" />
+            <input type="number" placeholder="Slope Rating" class="input w-1/2 course-slope" />
+        </div>
+        <div class="scores-container space-y-2">
+            <div class="flex space-x-2">
+                <input type="number" placeholder="Total Strokes" class="input w-full score-input" />
+            </div>
+            <button type="button" onclick="addScoreInput(this.parentElement)" class="text-sm text-red-500 hover:text-red-200">
+                + Add another score
+            </button>
+        </div>
+    `;
+    container.appendChild(courseDiv);
 }
 
 function calculateHandicap() {
-    const scores = Array.from(document.getElementsByClassName('score-input'))
+    let allDifferentials = [];
+    
+    // Get current course data
+    const currentCourseRating = parseFloat(document.querySelector('.current-course-rating').value);
+    const currentCourseSlope = parseFloat(document.querySelector('.current-course-slope').value);
+    const currentCourseScores = Array.from(document.querySelectorAll('#currentCourseScores .score-input'))
         .map(input => Number(input.value))
         .filter(score => !isNaN(score));
-    
-    const courseRating = Number(document.getElementById('courseRating').value);
-    const slopeRating = Number(document.getElementById('slopeRating').value);
-    
-    if (scores.length < 1) {
-        alert('Please enter at least one score');
+
+    // Calculate differentials for current course
+    if (!isNaN(currentCourseRating) && !isNaN(currentCourseSlope)) {
+        currentCourseScores.forEach(score => {
+            const differential = ((score - currentCourseRating) * 113) / currentCourseSlope;
+            if (!isNaN(differential)) allDifferentials.push(differential);
+        });
+    }
+
+    // Get additional courses data
+    document.querySelectorAll('.course-entry').forEach(course => {
+        const rating = parseFloat(course.querySelector('.course-rating').value);
+        const slope = parseFloat(course.querySelector('.course-slope').value);
+        const scores = Array.from(course.querySelectorAll('.score-input'))
+            .map(input => Number(input.value))
+            .filter(score => !isNaN(score));
+
+        if (!isNaN(rating) && !isNaN(slope)) {
+            scores.forEach(score => {
+                const differential = ((score - rating) * 113) / slope;
+                if (!isNaN(differential)) allDifferentials.push(differential);
+            });
+        }
+    });
+
+    if (allDifferentials.length === 0) {
+        alert('Please enter valid course data and scores');
         return;
     }
-    
-    // Calculate differentials
-    const differentials = scores.map(score => {
-        return ((score - courseRating) * 113) / slopeRating;
-    });
-    
-    // Get the best 8 differentials (or fewer if less available)
-    const sortedDifferentials = differentials.sort((a, b) => a - b);
+
+    // Sort differentials and get the best 8 (or fewer if less available)
+    const sortedDifferentials = allDifferentials.sort((a, b) => a - b);
     const bestDifferentials = sortedDifferentials.slice(0, Math.min(8, sortedDifferentials.length));
     
     // Calculate handicap index
     const handicapIndex = (bestDifferentials.reduce((a, b) => a + b, 0) / bestDifferentials.length) * 0.96;
-    
-    // Round to one decimal place
     const finalHandicap = Math.round(handicapIndex * 10) / 10;
     
-    // Update the handicap input in the registration form
+    // Update the handicap input
     document.getElementById('handicapResult').value = finalHandicap;
+    
+    // Store course data for form submission
+    const courseData = {
+        currentCourse: {
+            rating: currentCourseRating,
+            slope: currentCourseSlope,
+            scores: currentCourseScores
+        },
+        additionalCourses: Array.from(document.querySelectorAll('.course-entry')).map(course => ({
+            rating: parseFloat(course.querySelector('.course-rating').value),
+            slope: parseFloat(course.querySelector('.course-slope').value),
+            scores: Array.from(course.querySelectorAll('.score-input'))
+                .map(input => Number(input.value))
+                .filter(score => !isNaN(score))
+        })).filter(course => !isNaN(course.rating) && !isNaN(course.slope) && course.scores.length > 0)
+    };
+    
+    document.getElementById('courseDataInput').value = JSON.stringify(courseData);
 }
+
+// Add form submission handler
+document.getElementById('registrationForm').addEventListener('submit', function(e) {
+    if (document.getElementById('handicapCalculator').contains(e.target)) {
+        calculateHandicap(); // Ensure course data is updated before submission
+    }
+});
 </script>
 <%- include("partials/footer.ejs") %>
